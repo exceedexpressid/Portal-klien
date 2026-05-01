@@ -16,17 +16,16 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
-        body { touch-action: manipulation; background-color: #f3f4f6; font-family: 'Segoe UI', system-ui, sans-serif; }
+        body { touch-action: manipulation; background-color: #f9fafb; font-family: 'Segoe UI', system-ui, sans-serif; }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
     </style>
 </head>
 <body class="antialiased text-gray-800">
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect } = React;
 
         const loadLocal = (key, fallback) => {
             try { const item = localStorage.getItem(key); return item ? JSON.parse(item) : fallback; } catch (e) { return fallback; }
@@ -38,30 +37,34 @@
 
         function App() {
             // =================================================================================
-            // URL GOOGLE APPS SCRIPT ANDA
+            // URL DARI GOOGLE APPS SCRIPT ANDA
             // =================================================================================
             const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzVHojspm17WSZU42RaMtgiNWJikRfGyTlPh1FczlDJS9JL52PxX0d9RpkNJYM4g424/exec"; 
 
-            // State
-            const [userProfile, setUserProfile] = useState(() => loadLocal('ex_olshopProfile', null));
+            // State User & UI
+            const [userProfile, setUserProfile] = useState(() => loadLocal('exceed_olshopProfile', null));
             const [isLoadingSync, setIsLoadingSync] = useState(false);
             const [syncMessage, setSyncMessage] = useState({ text: '', type: '' });
             
             const [loginUname, setLoginUname] = useState('');
             const [loginPass, setLoginPass] = useState('');
 
-            const [packages, setPackages] = useState(() => loadLocal('ex_olshopPackages', []));
-            const [masterOlshops, setMasterOlshops] = useState(() => loadLocal('ex_masterOlshops', []));
+            // Data State
+            const [packages, setPackages] = useState(() => loadLocal('exceed_packages', []));
+            const [masterOlshops, setMasterOlshops] = useState(() => loadLocal('exceed_masterOlshops', []));
             
+            // Filter State
             const [filterStatus, setFilterStatus] = useState('semua');
             const [searchQuery, setSearchQuery] = useState('');
+            const [startDate, setStartDate] = useState('');
+            const [endDate, setEndDate] = useState('');
 
             // Save to Local Storage
-            useEffect(() => { localStorage.setItem('ex_olshopProfile', JSON.stringify(userProfile)); }, [userProfile]);
-            useEffect(() => { localStorage.setItem('ex_olshopPackages', JSON.stringify(packages)); }, [packages]);
-            useEffect(() => { localStorage.setItem('ex_masterOlshops', JSON.stringify(masterOlshops)); }, [masterOlshops]);
+            useEffect(() => { localStorage.setItem('exceed_olshopProfile', JSON.stringify(userProfile)); }, [userProfile]);
+            useEffect(() => { localStorage.setItem('exceed_packages', JSON.stringify(packages)); }, [packages]);
+            useEffect(() => { localStorage.setItem('exceed_masterOlshops', JSON.stringify(masterOlshops)); }, [masterOlshops]);
 
-            // Fetch Data from Google Sheets
+            // Fetch Data dari Apps Script
             const syncData = async (isLoginAttempt = false) => {
                 if (SCRIPT_URL === "TARUH_URL_ANDA_DISINI") {
                     setSyncMessage({ text: 'Error: SCRIPT_URL belum diganti di dalam kode HTML.', type: 'error' });
@@ -69,9 +72,7 @@
                 }
 
                 setIsLoadingSync(true);
-                if(!isLoginAttempt) {
-                    setSyncMessage({ text: '', type: '' });
-                }
+                if(!isLoginAttempt) setSyncMessage({ text: '', type: '' });
                 
                 try {
                     const response = await fetch(`${SCRIPT_URL}?action=getInitData&t=${new Date().getTime()}`);
@@ -104,14 +105,12 @@
                 }
             }, []);
 
-            // Login Handler - DIPERBARUI AGAR SELALU CEK DATA TERBARU
+            // Login Handler KHUSUS OLSHOP
             const handleLogin = async (e) => {
                 e.preventDefault();
                 setSyncMessage({ text: 'Sinkronisasi data terbaru...', type: 'info' });
 
-                // SELALU panggil syncData saat login untuk mendapatkan Olshop yang baru didaftarkan
                 const currentOlshops = await syncData(true) || [];
-
                 const uname = loginUname.trim().toLowerCase();
                 const pass = loginPass.trim();
 
@@ -123,27 +122,28 @@
                 if (validUser) {
                     setUserProfile({ id: validUser.id, name: validUser.nama });
                     setLoginUname(''); setLoginPass('');
-                    syncData(); // Tarik data paket terbaru setelah login sukses
+                    syncData(); // Tarik data paket setelah login
                 } else {
                     setSyncMessage({ text: 'Nama Toko atau Nomor WA tidak ditemukan!', type: 'error' });
                 }
             };
 
-            // Logout Handler
             const handleLogout = () => {
                 setUserProfile(null);
                 setPackages([]);
             };
 
-            // Rendering Login Screen
+            // ==========================================
+            // RENDER HALAMAN LOGIN (MURNI OLSHOP)
+            // ==========================================
             if (!userProfile) {
                 return (
                     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4 relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-full h-1/2 bg-orange-500 rounded-b-[50px] shadow-lg"></div>
+                        <div className="absolute top-0 left-0 w-full h-1/2 bg-[#e65c00] rounded-b-[50px] shadow-lg"></div>
                         
-                        <div className="glass-card p-8 rounded-3xl shadow-2xl w-full max-w-sm text-center relative z-10 border border-white/50">
-                            <div className="w-20 h-20 bg-orange-100 rounded-2xl flex items-center justify-center mx-auto mb-4 text-orange-600 shadow-inner">
-                                <i className="fas fa-shipping-fast text-4xl"></i>
+                        <div className="bg-white/95 backdrop-blur-md p-8 rounded-3xl shadow-2xl w-full max-w-sm text-center relative z-10 border border-white/50 mt-8">
+                            <div className="w-20 h-20 bg-orange-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-[#e65c00] shadow-inner">
+                                <i className="fas fa-store text-4xl"></i>
                             </div>
                             <h1 className="text-3xl font-black text-gray-800 tracking-tight">Klien Portal</h1>
                             <p className="text-sm text-gray-500 mb-8 font-medium">Exceed Express Tracking</p>
@@ -158,15 +158,15 @@
 
                                 <div className="relative">
                                     <i className="fas fa-store absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                                    <input type="text" required value={loginUname} onChange={(e) => setLoginUname(e.target.value)} placeholder="Nama Toko (Contoh: IDY)" className="w-full pl-12 pr-4 py-4 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all font-medium" disabled={isLoadingSync} />
+                                    <input type="text" required value={loginUname} onChange={(e) => setLoginUname(e.target.value)} placeholder="Nama Toko (Contoh: IDY)" className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#e65c00] focus:bg-white transition-all font-medium" disabled={isLoadingSync} />
                                 </div>
                                 
                                 <div className="relative">
                                     <i className="fas fa-phone absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                                    <input type="password" required value={loginPass} onChange={(e) => setLoginPass(e.target.value)} placeholder="No. WA (Terdaftar di Admin)" className="w-full pl-12 pr-4 py-4 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all font-medium" disabled={isLoadingSync} />
+                                    <input type="password" required value={loginPass} onChange={(e) => setLoginPass(e.target.value)} placeholder="No. WA (Terdaftar di Admin)" className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#e65c00] focus:bg-white transition-all font-medium" disabled={isLoadingSync} />
                                 </div>
 
-                                <button type="submit" disabled={isLoadingSync} className={`w-full text-white font-bold py-4 rounded-xl shadow-lg transition-all transform active:scale-95 flex justify-center items-center ${isLoadingSync ? 'bg-gray-400 cursor-not-allowed' : 'bg-orange-600 hover:bg-orange-700 shadow-orange-600/30'}`}>
+                                <button type="submit" disabled={isLoadingSync} className={`w-full text-white font-bold py-4 rounded-xl shadow-lg transition-all transform active:scale-95 flex justify-center items-center mt-2 ${isLoadingSync ? 'bg-gray-400 cursor-not-allowed shadow-none' : 'bg-[#e65c00] hover:bg-[#cc5200] shadow-orange-600/30'}`}>
                                     {isLoadingSync ? <><i className="fas fa-sync-alt animate-spin mr-2"></i> Memproses...</> : 'Masuk ke Dashboard'}
                                 </button>
                             </form>
@@ -175,7 +175,9 @@
                 );
             }
 
-            // Data Processing for Dashboard
+            // ==========================================
+            // FILTER & LOGIKA KEUANGAN DASHBOARD
+            // ==========================================
             const myPackages = packages.filter(p => {
                 const pOlshopName = String(p.olshopName).trim().toLowerCase();
                 const uName = String(userProfile.name).trim().toLowerCase();
@@ -183,63 +185,99 @@
                 return pOlshopName === uName || pOlshopName === uId;
             });
             
-            let filteredPkgs = filterStatus === 'semua' ? myPackages : myPackages.filter(p => String(p.status).toLowerCase().replace(' ', '_') === filterStatus);
+            let filteredPkgs = myPackages;
+
+            // 1. Filter Tanggal (DIPERBARUI UNTUK ZONA WAKTU)
+            if (startDate || endDate) {
+               filteredPkgs = filteredPkgs.filter(p => {
+                  if (!p.dateString) return false;
+                  
+                  let pDateStr = p.dateString;
+                  try {
+                      // Ubah UTC dari Google menjadi waktu lokal HP Anda secara presisi
+                      const d = new Date(pDateStr);
+                      if (!isNaN(d.getTime())) {
+                          pDateStr = d.getFullYear() + "-" + 
+                                     String(d.getMonth() + 1).padStart(2, '0') + "-" + 
+                                     String(d.getDate()).padStart(2, '0');
+                      } else if (pDateStr.includes('T')) {
+                          pDateStr = pDateStr.split('T')[0];
+                      }
+                  } catch(e) {
+                      if(pDateStr.includes('T')) pDateStr = pDateStr.split('T')[0];
+                  }
+
+                  // Jika filter awal kosong, anggap dari tanggal sangat lampau
+                  const sDate = startDate ? startDate : "2000-01-01";
+                  // Jika filter akhir kosong, anggap ke tanggal sangat jauh
+                  const eDate = endDate ? endDate : "2100-01-01";
+
+                  // Karena formatnya sudah seragam YYYY-MM-DD, kita bisa bandingkan String-nya langsung
+                  // Ini 100% bebas dari masalah Timezone (Jam)
+                  return pDateStr >= sDate && pDateStr <= eDate;
+               });
+            }
+
+            // 2. Filter Status & Search
+            if (filterStatus !== 'semua') {
+                filteredPkgs = filteredPkgs.filter(p => String(p.status).toLowerCase().replace(' ', '_') === filterStatus);
+            }
             if (searchQuery) {
                 filteredPkgs = filteredPkgs.filter(p => p.customerName.toLowerCase().includes(searchQuery.toLowerCase()) || p.packageId.toLowerCase().includes(searchQuery.toLowerCase()));
             }
 
-            // Financial Calculation
+            // 3. Kalkulasi Keuangan
             const hitungKeuangan = () => {
-                let saldoCash = 0;
-                let potonganOngkir = 0;
-                let pktsSukses = 0;
+                let saldoBelumCair = 0; 
+                let saldoSudahCair = 0; 
+                let potonganOngkir = 0; 
 
-                myPackages.forEach(p => {
+                filteredPkgs.forEach(p => {
                     if (String(p.status).toLowerCase() === 'sukses') {
-                        pktsSukses++;
                         const metode = String(p.metodeBayar).trim().toUpperCase();
-                        const hargaBarangAsli = Number(p.hargaPaket) || 0;
+                        const hargaPkt = Number(p.hargaPaket) || 0;
                         const tagihanTotal = Number(p.totalTagihan) || 0;
-                        const ongkirDihitung = (tagihanTotal - hargaBarangAsli > 0) ? (tagihanTotal - hargaBarangAsli) : 0;
-                        
-                        if (metode === 'TF OLSHOP') {
+                        const ongkirDihitung = (tagihanTotal - hargaPkt > 0) ? (tagihanTotal - hargaPkt) : 0;
+                        const isCair = String(p.statusPencairan).toLowerCase() === 'cair';
+
+                        if (metode === 'TF OLSHOP' || metode === 'TF KANTOR') {
                             potonganOngkir += ongkirDihitung;
-                        } 
-                        else if (metode === 'CASH' || metode === 'TF KANTOR') {
-                            saldoCash += hargaBarangAsli;
+                        } else if (metode === 'CASH') {
+                            if (isCair) saldoSudahCair += hargaPkt;
+                            else saldoBelumCair += hargaPkt;
                         }
                     }
                 });
 
-                return { saldoCash, potonganOngkir, totalPencairan: saldoCash - potonganOngkir, pktsSukses };
+                return { saldoBelumCair, saldoSudahCair, potonganOngkir, totalPencairanEstimasi: saldoBelumCair - potonganOngkir };
             };
 
             const keuangan = hitungKeuangan();
 
             const StatusBadge = ({ status }) => {
                 const s = String(status).toLowerCase();
-                if(s === 'sukses') return <span className="bg-green-100 text-green-700 border-green-200 px-2 py-1 rounded text-[10px] font-bold uppercase border"><i className="fas fa-check-circle mr-1"></i>Sukses</span>;
-                if(s === 'cancel') return <span className="bg-red-100 text-red-700 border-red-200 px-2 py-1 rounded text-[10px] font-bold uppercase border"><i className="fas fa-times-circle mr-1"></i>Cancel</span>;
-                if(s === 'pending') return <span className="bg-orange-100 text-orange-700 border-orange-200 px-2 py-1 rounded text-[10px] font-bold uppercase border"><i className="fas fa-clock mr-1"></i>Tertunda</span>;
-                return <span className="bg-blue-100 text-blue-700 border-blue-200 px-2 py-1 rounded text-[10px] font-bold uppercase border"><i className="fas fa-truck mr-1"></i>Proses Antar</span>;
+                if(s === 'sukses') return <span className="bg-green-100 text-green-700 border-green-200 px-2 py-1 rounded text-[10px] font-bold uppercase border inline-flex items-center"><i className="fas fa-check-circle mr-1"></i>Sukses</span>;
+                if(s === 'cancel') return <span className="bg-red-100 text-red-700 border-red-200 px-2 py-1 rounded text-[10px] font-bold uppercase border inline-flex items-center"><i className="fas fa-times-circle mr-1"></i>Cancel</span>;
+                if(s === 'pending') return <span className="bg-orange-100 text-orange-700 border-orange-200 px-2 py-1 rounded text-[10px] font-bold uppercase border inline-flex items-center"><i className="fas fa-clock mr-1"></i>Tertunda</span>;
+                return <span className="bg-blue-100 text-blue-700 border-blue-200 px-2 py-1 rounded text-[10px] font-bold uppercase border inline-flex items-center"><i className="fas fa-truck mr-1"></i>Proses Antar</span>;
             };
 
             return (
                 <div className="min-h-screen bg-gray-100 font-sans max-w-md mx-auto shadow-2xl relative flex flex-col">
                     {/* Header */}
-                    <header className="bg-white px-5 py-4 shadow-sm z-10 sticky top-0 flex justify-between items-center">
+                    <header className="bg-white px-5 py-4 shadow-sm z-10 sticky top-0 flex justify-between items-center border-b border-gray-100">
                         <div>
-                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-0.5">Dashboard Toko</p>
-                            <h1 className="text-xl font-black text-orange-600 leading-none">{userProfile.name}</h1>
+                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-0.5">DASHBOARD TOKO</p>
+                            <h1 className="text-xl font-black text-[#e65c00] leading-none truncate max-w-[200px]">{userProfile.name}</h1>
                         </div>
-                        <button onClick={handleLogout} className="text-xs font-bold text-gray-500 hover:text-red-500 bg-gray-50 hover:bg-red-50 border border-gray-200 px-3 py-1.5 rounded-lg transition-colors">
-                            Keluar <i className="fas fa-sign-out-alt ml-1"></i>
+                        <button onClick={handleLogout} className="text-xs font-bold text-gray-600 hover:text-red-600 bg-gray-50 hover:bg-red-50 border border-gray-200 px-3 py-1.5 rounded-lg transition-colors flex items-center">
+                            Keluar <i className="fas fa-sign-out-alt ml-2"></i>
                         </button>
                     </header>
 
-                    <div className="flex-1 overflow-y-auto p-4 pb-10 space-y-5">
+                    <div className="flex-1 overflow-y-auto p-4 pb-10 space-y-4">
                         
-                        {/* Notifikasi Sinkronisasi */}
+                        {/* Notifikasi Sync */}
                         {syncMessage.text && (
                             <div className="bg-green-100 border border-green-200 text-green-700 px-3 py-2 rounded-lg text-xs font-bold flex justify-between items-center animate-pulse">
                                 <span><i className="fas fa-info-circle mr-2"></i>{syncMessage.text}</span>
@@ -247,46 +285,70 @@
                         )}
 
                         {/* Kartu Saldo */}
-                        <div className="bg-gradient-to-br from-orange-500 to-orange-700 rounded-2xl p-5 text-white shadow-lg relative overflow-hidden">
-                            <div className="absolute -right-4 -top-4 opacity-20">
-                                <i className="fas fa-wallet text-9xl"></i>
+                        <div className="bg-gradient-to-br from-[#e65c00] to-[#b34700] rounded-2xl p-5 text-white shadow-lg relative overflow-hidden">
+                            <div className="absolute -right-4 -top-4 opacity-10">
+                                <i className="fas fa-wallet text-[120px]"></i>
                             </div>
+                            
                             <div className="relative z-10">
                                 <div className="flex justify-between items-start mb-2">
-                                    <p className="text-orange-100 text-xs font-semibold uppercase tracking-wider">Estimasi Pencairan Tunai</p>
-                                    <button onClick={() => syncData()} disabled={isLoadingSync} className={`flex items-center bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-full transition-all ${isLoadingSync ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                                        <i className={`fas fa-sync-alt text-white text-xs mr-1 ${isLoadingSync ? 'animate-spin' : ''}`}></i>
+                                    <p className="text-orange-100 text-xs font-semibold uppercase tracking-wider flex items-center"><i className="fas fa-wallet mr-1.5"></i> Estimasi Pencairan (Belum Cair)</p>
+                                    <button onClick={() => syncData()} disabled={isLoadingSync} className={`flex items-center bg-white/20 hover:bg-white/30 px-2.5 py-1 rounded-full transition-all ${isLoadingSync ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                        <i className={`fas fa-sync-alt text-white mr-1.5 text-xs ${isLoadingSync ? 'animate-spin' : ''}`}></i>
                                         <span className="text-white text-[10px] font-bold">{isLoadingSync ? 'Memuat...' : 'Refresh'}</span>
                                     </button>
                                 </div>
-                                <h2 className="text-3xl font-black mb-4 tracking-tight">{formatCurrency(keuangan.totalPencairan)}</h2>
                                 
-                                <div className="bg-orange-800/40 p-3 rounded-xl border border-orange-400/30 space-y-1.5 text-xs">
+                                <h2 className="text-3xl font-black mb-3 tracking-tight">{formatCurrency(keuangan.totalPencairanEstimasi)}</h2>
+                                
+                                <div className="bg-[#993d00]/50 p-3 rounded-xl border border-white/10 space-y-1.5 text-xs mb-3">
                                     <div className="flex justify-between items-center">
-                                        <span className="text-orange-100"><i className="fas fa-plus-circle text-green-300 mr-1.5"></i>Uang Terkumpul Kurir</span>
-                                        <span className="font-bold">+{formatCurrency(keuangan.saldoCash)}</span>
+                                        <span className="text-orange-50 flex items-center"><i className="fas fa-arrow-up text-green-400 mr-1.5"></i> Uang Terkumpul Kurir</span>
+                                        <span className="font-bold">+{formatCurrency(keuangan.saldoBelumCair)}</span>
                                     </div>
                                     <div className="flex justify-between items-center">
-                                        <span className="text-orange-100"><i className="fas fa-minus-circle text-red-300 mr-1.5"></i>Potongan Ongkir (TF Toko)</span>
+                                        <span className="text-orange-50 flex items-center"><i className="fas fa-arrow-down text-red-300 mr-1.5"></i> Potongan Ongkir (TF Toko/Ktr)</span>
                                         <span className="font-bold text-red-200">-{formatCurrency(keuangan.potonganOngkir)}</span>
                                     </div>
-                                    <div className="pt-2 mt-2 border-t border-orange-400/30 flex justify-between items-center text-[10px] text-orange-200">
-                                        <span>Dari total {keuangan.pktsSukses} paket sukses.</span>
-                                    </div>
+                                </div>
+
+                                {/* STATUS DANA SUDAH CAIR */}
+                                <div className="bg-green-600/90 border border-green-500 p-2.5 rounded-xl flex justify-between items-center shadow-inner">
+                                   <span className="flex items-center text-xs font-bold text-green-50"><i className="fas fa-shield-check text-green-200 mr-1.5"></i> Dana Telah Dicairkan</span>
+                                   <span className="font-black text-sm text-white">{formatCurrency(keuangan.saldoSudahCair)}</span>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Search & Filter */}
-                        <div>
-                            <div className="relative mb-3 shadow-sm">
+                        {/* Search & Filter Component */}
+                        <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 space-y-3">
+                            <div className="relative">
                                 <i className="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
-                                <input type="text" placeholder="Cari Resi atau Nama Customer..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-9 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:border-orange-500 transition-colors" />
+                                <input type="text" placeholder="Cari Resi atau Nama Customer..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none focus:border-[#e65c00] transition-colors" />
                             </div>
 
-                            <div className="flex space-x-2 overflow-x-auto pb-2 scrollbar-hide">
+                            {/* Filter Tanggal */}
+                            <div className="flex items-center space-x-2">
+                                <div className="relative flex-1">
+                                    <i className="fas fa-calendar absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs"></i>
+                                    <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full pl-8 pr-2 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs outline-none focus:border-[#e65c00] text-gray-600 font-medium" />
+                                </div>
+                                <span className="text-xs font-bold text-gray-400">-</span>
+                                <div className="relative flex-1">
+                                    <i className="fas fa-calendar absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs"></i>
+                                    <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full pl-8 pr-2 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs outline-none focus:border-[#e65c00] text-gray-600 font-medium" />
+                                </div>
+                                {(startDate || endDate) && (
+                                    <button onClick={() => { setStartDate(''); setEndDate(''); }} className="p-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 transition-colors" title="Reset Tanggal">
+                                        <i className="fas fa-times-circle"></i>
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Filter Status */}
+                            <div className="flex space-x-2 overflow-x-auto pb-1 scrollbar-hide">
                                 {[{id:'semua', label:'Semua'}, {id:'siap_antar', label:'Proses'}, {id:'sukses', label:'Sukses'}, {id:'pending', label:'Pending'}, {id:'cancel', label:'Batal'}].map(s => (
-                                    <button key={s.id} onClick={() => setFilterStatus(s.id)} className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all border ${filterStatus === s.id ? 'bg-orange-600 text-white border-orange-600 shadow-md' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                                    <button key={s.id} onClick={() => setFilterStatus(s.id)} className={`px-3 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all border ${filterStatus === s.id ? 'bg-[#e65c00] text-white border-[#e65c00] shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>
                                         {s.label}
                                     </button>
                                 ))}
@@ -298,7 +360,7 @@
                             {filteredPkgs.length === 0 ? (
                                 <div className="text-center py-10 bg-white rounded-xl border border-dashed border-gray-300">
                                     <i className="fas fa-box-open text-gray-300 mb-2 text-4xl"></i>
-                                    <p className="text-gray-500 font-medium text-sm">Tidak ada data paket.</p>
+                                    <p className="text-gray-500 font-medium text-sm">Tidak ada paket di periode ini.</p>
                                 </div>
                             ) : (
                                 filteredPkgs.map((pkg, idx) => {
@@ -307,39 +369,61 @@
                                     const tagihan = Number(pkg.totalTagihan) || 0;
                                     const ongkir = (tagihan - hBarang > 0) ? (tagihan - hBarang) : 0;
                                     const isSukses = String(pkg.status).toLowerCase() === 'sukses';
+                                    const isCair = String(pkg.statusPencairan).toLowerCase() === 'cair';
+
+                                    let displayTgl = String(pkg.dateString || '-');
+                                    if (displayTgl.includes('T')) {
+                                        try { displayTgl = new Date(displayTgl).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}); } 
+                                        catch(e) { displayTgl = displayTgl.split('T')[0]; }
+                                    }
 
                                     return (
-                                        <div key={idx} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                                            <div className="flex justify-between items-start mb-2">
+                                        <div key={idx} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden">
+                                            {/* PITA STATUS PENCAIRAN */}
+                                            {isSukses && metode === 'CASH' && (
+                                               <div className={`absolute -right-8 top-3 transform rotate-45 px-8 py-0.5 text-[9px] font-black uppercase tracking-wider text-white shadow-sm ${isCair ? 'bg-green-500' : 'bg-orange-500'}`}>
+                                                  {isCair ? 'TELAH CAIR' : 'BELUM CAIR'}
+                                               </div>
+                                            )}
+
+                                            <div className="flex justify-between items-start mb-2 pr-12">
                                                 <div>
-                                                    <span className="font-mono text-[10px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded border border-gray-200">{pkg.packageId}</span>
-                                                    <h3 className="font-bold text-gray-800 text-base mt-1">{pkg.customerName}</h3>
+                                                    <span className="font-mono text-[10px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded border border-gray-200 inline-block mb-1">{pkg.packageId}</span>
+                                                    <h3 className="font-bold text-gray-800 text-base">{pkg.customerName}</h3>
                                                 </div>
-                                                <StatusBadge status={pkg.status} />
                                             </div>
                                             
-                                            <div className="text-[11px] text-gray-500 bg-gray-50 p-2.5 rounded-lg border border-gray-100 mb-3">
-                                                <p className="mb-1 flex items-start"><i className="fas fa-map-marker-alt text-gray-400 mr-2 mt-0.5 w-3 text-center"></i> <span className="line-clamp-2">{pkg.address}</span></p>
+                                            <div className="mb-3">
+                                                <StatusBadge status={pkg.status} />
+                                            </div>
+
+                                            <div className="text-[11px] text-gray-500 bg-gray-50 p-2.5 rounded-lg border border-gray-100 mb-3 space-y-1">
+                                                <p className="flex items-start"><i className="fas fa-map-marker-alt text-gray-400 mr-2 mt-0.5 w-3 text-center"></i> <span className="line-clamp-2">{pkg.address}</span></p>
                                                 <p className="flex items-center"><i className="fas fa-phone text-gray-400 mr-2 w-3 text-center"></i> {pkg.customerPhone}</p>
                                             </div>
 
                                             <div className="flex justify-between items-end pt-2 border-t border-gray-100">
                                                 <div className="text-[10px] text-gray-500">
-                                                    <p className="mb-0.5 font-semibold">Tgl: {pkg.tanggal || '-'}</p>
+                                                    <p className="mb-0.5 font-semibold">Tgl: {displayTgl}</p>
                                                     <p>Kurir: <span className="font-bold text-gray-700">{pkg.kurirId || 'Belum dijemput'}</span></p>
                                                 </div>
                                                 
                                                 <div className="text-right">
                                                     {isSukses ? (
-                                                        metode === 'TF OLSHOP' ? (
+                                                        (metode === 'TF OLSHOP' || metode === 'TF KANTOR') ? (
                                                             <div>
                                                                 <p className="text-[9px] font-bold text-red-500 uppercase">Potongan Ongkir ({pkg.metodeBayar})</p>
                                                                 <p className="font-black text-red-600 text-sm">-{formatCurrency(ongkir)}</p>
                                                             </div>
+                                                        ) : (metode === 'CASH') ? (
+                                                            <div>
+                                                                <p className={`text-[9px] font-bold uppercase ${isCair ? 'text-green-600' : 'text-[#e65c00]'}`}>{isCair ? 'Dana Masuk' : 'Pencairan (CASH)'}</p>
+                                                                <p className={`font-black text-sm ${isCair ? 'text-green-600' : 'text-[#e65c00]'}`}>+{formatCurrency(hBarang)}</p>
+                                                            </div>
                                                         ) : (
                                                             <div>
-                                                                <p className="text-[9px] font-bold text-green-600 uppercase">Pencairan ({pkg.metodeBayar})</p>
-                                                                <p className="font-black text-green-600 text-sm">+{formatCurrency(hBarang)}</p>
+                                                               <p className="text-[9px] font-bold text-orange-500 uppercase">Metode Kosong</p>
+                                                               <p className="font-black text-orange-600 text-xs">Cek AppSheet!</p>
                                                             </div>
                                                         )
                                                     ) : (
