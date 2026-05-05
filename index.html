@@ -19,6 +19,11 @@
         body { touch-action: manipulation; background-color: #f9fafb; font-family: 'Segoe UI', system-ui, sans-serif; }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        /* Custom scrollbar untuk tabel agar lebih estetik */
+        .table-scroll::-webkit-scrollbar { height: 6px; }
+        .table-scroll::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        .table-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .table-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
 </head>
 <body class="antialiased text-gray-800">
@@ -37,7 +42,7 @@
 
         function App() {
             // =================================================================================
-            // URL DARI GOOGLE APPS SCRIPT ANDA
+            // URL DARI GOOGLE APPS SCRIPT ANDA (SUDAH FIX)
             // =================================================================================
             const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzVHojspm17WSZU42RaMtgiNWJikRfGyTlPh1FczlDJS9JL52PxX0d9RpkNJYM4g424/exec"; 
 
@@ -66,11 +71,6 @@
 
             // Fetch Data dari Apps Script
             const syncData = async (isLoginAttempt = false) => {
-                if (SCRIPT_URL === "TARUH_URL_ANDA_DISINI") {
-                    setSyncMessage({ text: 'Error: SCRIPT_URL belum diganti di dalam kode HTML.', type: 'error' });
-                    return false;
-                }
-
                 setIsLoadingSync(true);
                 if(!isLoginAttempt) setSyncMessage({ text: '', type: '' });
                 
@@ -187,14 +187,13 @@
             
             let filteredPkgs = myPackages;
 
-            // 1. Filter Tanggal (DIPERBARUI UNTUK ZONA WAKTU)
+            // 1. Filter Tanggal (Waktu Lokal)
             if (startDate || endDate) {
                filteredPkgs = filteredPkgs.filter(p => {
                   if (!p.dateString) return false;
                   
                   let pDateStr = p.dateString;
                   try {
-                      // Ubah UTC dari Google menjadi waktu lokal HP Anda secara presisi
                       const d = new Date(pDateStr);
                       if (!isNaN(d.getTime())) {
                           pDateStr = d.getFullYear() + "-" + 
@@ -207,13 +206,8 @@
                       if(pDateStr.includes('T')) pDateStr = pDateStr.split('T')[0];
                   }
 
-                  // Jika filter awal kosong, anggap dari tanggal sangat lampau
                   const sDate = startDate ? startDate : "2000-01-01";
-                  // Jika filter akhir kosong, anggap ke tanggal sangat jauh
                   const eDate = endDate ? endDate : "2100-01-01";
-
-                  // Karena formatnya sudah seragam YYYY-MM-DD, kita bisa bandingkan String-nya langsung
-                  // Ini 100% bebas dari masalah Timezone (Jam)
                   return pDateStr >= sDate && pDateStr <= eDate;
                });
             }
@@ -256,14 +250,14 @@
 
             const StatusBadge = ({ status }) => {
                 const s = String(status).toLowerCase();
-                if(s === 'sukses') return <span className="bg-green-100 text-green-700 border-green-200 px-2 py-1 rounded text-[10px] font-bold uppercase border inline-flex items-center"><i className="fas fa-check-circle mr-1"></i>Sukses</span>;
-                if(s === 'cancel') return <span className="bg-red-100 text-red-700 border-red-200 px-2 py-1 rounded text-[10px] font-bold uppercase border inline-flex items-center"><i className="fas fa-times-circle mr-1"></i>Cancel</span>;
-                if(s === 'pending') return <span className="bg-orange-100 text-orange-700 border-orange-200 px-2 py-1 rounded text-[10px] font-bold uppercase border inline-flex items-center"><i className="fas fa-clock mr-1"></i>Tertunda</span>;
-                return <span className="bg-blue-100 text-blue-700 border-blue-200 px-2 py-1 rounded text-[10px] font-bold uppercase border inline-flex items-center"><i className="fas fa-truck mr-1"></i>Proses Antar</span>;
+                if(s === 'sukses') return <span className="bg-green-100 text-green-700 border-green-200 px-2 py-0.5 rounded text-[9px] font-bold uppercase border inline-flex items-center whitespace-nowrap"><i className="fas fa-check-circle mr-1"></i>Sukses</span>;
+                if(s === 'cancel') return <span className="bg-red-100 text-red-700 border-red-200 px-2 py-0.5 rounded text-[9px] font-bold uppercase border inline-flex items-center whitespace-nowrap"><i className="fas fa-times-circle mr-1"></i>Cancel</span>;
+                if(s === 'pending') return <span className="bg-orange-100 text-orange-700 border-orange-200 px-2 py-0.5 rounded text-[9px] font-bold uppercase border inline-flex items-center whitespace-nowrap"><i className="fas fa-clock mr-1"></i>Tertunda</span>;
+                return <span className="bg-blue-100 text-blue-700 border-blue-200 px-2 py-0.5 rounded text-[9px] font-bold uppercase border inline-flex items-center whitespace-nowrap"><i className="fas fa-truck mr-1"></i>Proses</span>;
             };
 
             return (
-                <div className="min-h-screen bg-gray-100 font-sans max-w-md mx-auto shadow-2xl relative flex flex-col">
+                <div className="min-h-screen bg-gray-100 font-sans max-w-lg mx-auto shadow-2xl relative flex flex-col">
                     {/* Header */}
                     <header className="bg-white px-5 py-4 shadow-sm z-10 sticky top-0 flex justify-between items-center border-b border-gray-100">
                         <div>
@@ -355,92 +349,95 @@
                             </div>
                         </div>
 
-                        {/* List Paket */}
-                        <div className="space-y-3">
+                        {/* TAMPILAN BARU: TABEL PAKET */}
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                            <div className="px-4 py-3 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                                <h3 className="font-bold text-gray-700 text-sm"><i className="fas fa-list-alt text-[#e65c00] mr-2"></i>Daftar Paket</h3>
+                                <span className="text-[10px] font-bold bg-orange-100 text-[#e65c00] px-2 py-1 rounded-full">{filteredPkgs.length} Data</span>
+                            </div>
+                            
                             {filteredPkgs.length === 0 ? (
-                                <div className="text-center py-10 bg-white rounded-xl border border-dashed border-gray-300">
+                                <div className="text-center py-10 bg-white">
                                     <i className="fas fa-box-open text-gray-300 mb-2 text-4xl"></i>
                                     <p className="text-gray-500 font-medium text-sm">Tidak ada paket di periode ini.</p>
                                 </div>
                             ) : (
-                                filteredPkgs.map((pkg, idx) => {
-                                    const metode = String(pkg.metodeBayar).trim().toUpperCase();
-                                    const hBarang = Number(pkg.hargaPaket) || 0;
-                                    const tagihan = Number(pkg.totalTagihan) || 0;
-                                    const ongkir = (tagihan - hBarang > 0) ? (tagihan - hBarang) : 0;
-                                    const isSukses = String(pkg.status).toLowerCase() === 'sukses';
-                                    const isCair = String(pkg.statusPencairan).toLowerCase() === 'cair';
+                                <div className="overflow-x-auto table-scroll">
+                                    <table className="w-full text-left border-collapse min-w-[500px]">
+                                        <thead>
+                                            <tr className="bg-gray-50 border-b border-gray-200 text-[10px] uppercase tracking-wider text-gray-500">
+                                                <th className="p-3 font-bold">Tanggal & Resi</th>
+                                                <th className="p-3 font-bold">Penerima</th>
+                                                <th className="p-3 font-bold text-center">Status</th>
+                                                <th className="p-3 font-bold text-right">Keuangan</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="text-xs">
+                                            {filteredPkgs.map((pkg, idx) => {
+                                                const metode = String(pkg.metodeBayar).trim().toUpperCase();
+                                                const hBarang = Number(pkg.hargaPaket) || 0;
+                                                const tagihan = Number(pkg.totalTagihan) || 0;
+                                                const ongkir = (tagihan - hBarang > 0) ? (tagihan - hBarang) : 0;
+                                                const isSukses = String(pkg.status).toLowerCase() === 'sukses';
+                                                const isCair = String(pkg.statusPencairan).toLowerCase() === 'cair';
 
-                                    let displayTgl = String(pkg.dateString || '-');
-                                    if (displayTgl.includes('T')) {
-                                        try { displayTgl = new Date(displayTgl).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'}); } 
-                                        catch(e) { displayTgl = displayTgl.split('T')[0]; }
-                                    }
+                                                let displayTgl = String(pkg.dateString || '-');
+                                                if (displayTgl.includes('T')) {
+                                                    try { displayTgl = new Date(displayTgl).toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: '2-digit'}); } 
+                                                    catch(e) { displayTgl = displayTgl.split('T')[0]; }
+                                                }
 
-                                    return (
-                                        <div key={idx} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 relative overflow-hidden">
-                                            {/* PITA STATUS PENCAIRAN */}
-                                            {isSukses && metode === 'CASH' && (
-                                               <div className={`absolute -right-8 top-3 transform rotate-45 px-8 py-0.5 text-[9px] font-black uppercase tracking-wider text-white shadow-sm ${isCair ? 'bg-green-500' : 'bg-orange-500'}`}>
-                                                  {isCair ? 'TELAH CAIR' : 'BELUM CAIR'}
-                                               </div>
-                                            )}
-
-                                            <div className="flex justify-between items-start mb-2 pr-12">
-                                                <div>
-                                                    <span className="font-mono text-[10px] text-gray-500 bg-gray-100 px-2 py-0.5 rounded border border-gray-200 inline-block mb-1">{pkg.packageId}</span>
-                                                    <h3 className="font-bold text-gray-800 text-base">{pkg.customerName}</h3>
-                                                </div>
-                                            </div>
-                                            
-                                            <div className="mb-3">
-                                                <StatusBadge status={pkg.status} />
-                                            </div>
-
-                                            <div className="text-[11px] text-gray-500 bg-gray-50 p-2.5 rounded-lg border border-gray-100 mb-3 space-y-1">
-                                                <p className="flex items-start"><i className="fas fa-map-marker-alt text-gray-400 mr-2 mt-0.5 w-3 text-center"></i> <span className="line-clamp-2">{pkg.address}</span></p>
-                                                <p className="flex items-center"><i className="fas fa-phone text-gray-400 mr-2 w-3 text-center"></i> {pkg.customerPhone}</p>
-                                            </div>
-
-                                            <div className="flex justify-between items-end pt-2 border-t border-gray-100">
-                                                <div className="text-[10px] text-gray-500">
-                                                    <p className="mb-0.5 font-semibold">Tgl: {displayTgl}</p>
-                                                    <p>Kurir: <span className="font-bold text-gray-700">{pkg.kurirId || 'Belum dijemput'}</span></p>
-                                                </div>
-                                                
-                                                <div className="text-right">
-                                                    {isSukses ? (
-                                                        (metode === 'TF OLSHOP' || metode === 'TF KANTOR') ? (
-                                                            <div>
-                                                                <p className="text-[9px] font-bold text-red-500 uppercase">Potongan Ongkir ({pkg.metodeBayar})</p>
-                                                                <p className="font-black text-red-600 text-sm">-{formatCurrency(ongkir)}</p>
-                                                            </div>
-                                                        ) : (metode === 'CASH') ? (
-                                                            <div>
-                                                                <p className={`text-[9px] font-bold uppercase ${isCair ? 'text-green-600' : 'text-[#e65c00]'}`}>{isCair ? 'Dana Masuk' : 'Pencairan (CASH)'}</p>
-                                                                <p className={`font-black text-sm ${isCair ? 'text-green-600' : 'text-[#e65c00]'}`}>+{formatCurrency(hBarang)}</p>
-                                                            </div>
-                                                        ) : (
-                                                            <div>
-                                                               <p className="text-[9px] font-bold text-orange-500 uppercase">Metode Kosong</p>
-                                                               <p className="font-black text-orange-600 text-xs">Cek AppSheet!</p>
-                                                            </div>
-                                                        )
-                                                    ) : (
-                                                        <div>
-                                                            <p className="text-[9px] font-bold text-gray-400 uppercase">Nilai Barang</p>
-                                                            <p className="font-black text-gray-700 text-sm">{formatCurrency(hBarang)}</p>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )
-                                })
+                                                return (
+                                                    <tr key={idx} className="border-b border-gray-100 hover:bg-orange-50/30 transition-colors">
+                                                        <td className="p-3 whitespace-nowrap">
+                                                            <div className="font-semibold text-gray-800">{displayTgl}</div>
+                                                            <div className="font-mono text-[9px] font-bold text-[#e65c00] bg-orange-50 px-1 py-0.5 rounded mt-0.5 inline-block">{pkg.packageId}</div>
+                                                        </td>
+                                                        <td className="p-3">
+                                                            <div className="font-bold text-gray-800 line-clamp-1">{pkg.customerName}</div>
+                                                            <div className="text-[10px] text-gray-500 mt-0.5 flex items-center"><i className="fas fa-phone text-gray-400 mr-1 w-3"></i>{pkg.customerPhone}</div>
+                                                            <div className="text-[9px] text-gray-400 mt-0.5 flex items-center"><i className="fas fa-user-tie text-gray-300 mr-1 w-3"></i>Kurir: {pkg.kurirId || '-'}</div>
+                                                        </td>
+                                                        <td className="p-3 text-center whitespace-nowrap align-middle">
+                                                            <StatusBadge status={pkg.status} />
+                                                        </td>
+                                                        <td className="p-3 text-right whitespace-nowrap">
+                                                            {isSukses ? (
+                                                                (metode === 'TF OLSHOP' || metode === 'TF KANTOR') ? (
+                                                                    <div>
+                                                                        <div className="font-bold text-red-600">-{formatCurrency(ongkir)}</div>
+                                                                        <div className="text-[9px] font-bold text-red-400 uppercase mt-0.5">Ongkir ({metode})</div>
+                                                                    </div>
+                                                                ) : (metode === 'CASH') ? (
+                                                                    <div>
+                                                                        <div className={`font-bold ${isCair ? 'text-green-600' : 'text-[#e65c00]'}`}>{formatCurrency(hBarang)}</div>
+                                                                        <div className={`text-[9px] font-bold uppercase mt-0.5 px-1.5 py-0.5 rounded inline-block ${isCair ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                                                                            {isCair ? 'TELAH CAIR' : 'BELUM CAIR'}
+                                                                        </div>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div>
+                                                                        <div className="font-bold text-gray-500">{formatCurrency(hBarang)}</div>
+                                                                        <div className="text-[9px] font-bold text-gray-400 uppercase mt-0.5">Metode Kosong</div>
+                                                                    </div>
+                                                                )
+                                                            ) : (
+                                                                <div>
+                                                                    <div className="font-bold text-gray-600">{formatCurrency(hBarang)}</div>
+                                                                    <div className="text-[9px] font-bold text-gray-400 uppercase mt-0.5">Nilai Barang</div>
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
                             )}
                         </div>
                         
-                        <div className="text-center pt-4 pb-2">
+                        <div className="text-center pt-2 pb-2">
                             <p className="text-[10px] text-gray-400">Exceed Express Logistics &copy; 2026</p>
                         </div>
                     </div>
