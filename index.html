@@ -143,7 +143,7 @@
             if (!userProfile) {
                 return (
                     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4 relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-full h-1/2 bg-[#e65c00] rounded-b-[50px] shadow-lg"></div>
+                        <div className="absolute top-0 left-0 w-full h-1/2 bg-[#e65c00] shadow-lg" style={{ borderBottomLeftRadius: '100% 20%', borderBottomRightRadius: '100% 20%' }}></div>
                         
                         <div className="bg-white/95 backdrop-blur-md p-8 rounded-3xl shadow-2xl w-full max-w-sm text-center relative z-10 border border-white/50 mt-8">
                             <div className="w-20 h-20 bg-orange-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-[#e65c00] shadow-inner">
@@ -198,20 +198,43 @@
             
             let filteredPkgs = myPackages;
 
-            // 1. Filter Tanggal
+            // 1. Filter Tanggal (DIPERBAIKI: Mengatasi Bug Zona Waktu / Off-by-1 day)
             if (startDate || endDate) {
                filteredPkgs = filteredPkgs.filter(p => {
                   let pDateStr = p.dateString || p.tanggal || '';
+                  if (!pDateStr) return false;
+
+                  let normalizedDateStr = "";
+
                   try {
-                      if (pDateStr.includes('T')) pDateStr = pDateStr.split('T')[0];
-                      else {
-                          const d = new Date(pDateStr);
-                          if (!isNaN(d.getTime())) pDateStr = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, '0') + "-" + String(d.getDate()).padStart(2, '0');
+                      // Parse tanggal untuk otomatis menyesuaikan dengan zona waktu lokal perangkat
+                      let d = new Date(pDateStr);
+                      
+                      // Tangani manual jika dari string DD/MM/YYYY
+                      if (isNaN(d.getTime()) && pDateStr.includes('/')) {
+                          const parts = pDateStr.split('/');
+                          if (parts.length === 3) {
+                              d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`); 
+                          }
                       }
-                  } catch(e) {}
+
+                      if (!isNaN(d.getTime())) {
+                          // Ubah kembali jadi YYYY-MM-DD sesuai waktu lokal
+                          const year = d.getFullYear();
+                          const month = String(d.getMonth() + 1).padStart(2, '0');
+                          const day = String(d.getDate()).padStart(2, '0');
+                          normalizedDateStr = `${year}-${month}-${day}`;
+                      } else {
+                          // Fallback darurat
+                          normalizedDateStr = pDateStr.split('T')[0]; 
+                      }
+                  } catch(e) {
+                      normalizedDateStr = pDateStr.split('T')[0];
+                  }
+
                   const sDate = startDate ? startDate : "2000-01-01";
                   const eDate = endDate ? endDate : "2100-01-01";
-                  return pDateStr >= sDate && pDateStr <= eDate;
+                  return normalizedDateStr >= sDate && normalizedDateStr <= eDate;
                });
             }
 
@@ -249,95 +272,100 @@
 
             const StatusBadge = ({ status }) => {
                 const s = String(status).toLowerCase();
-                if(s === 'sukses') return <span className="bg-green-100 text-green-700 border-green-200 px-2 py-0.5 rounded text-[9px] font-bold uppercase border inline-flex items-center whitespace-nowrap"><i className="fas fa-check-circle mr-1"></i>Sukses</span>;
-                if(s === 'cancel') return <span className="bg-red-100 text-red-700 border-red-200 px-2 py-0.5 rounded text-[9px] font-bold uppercase border inline-flex items-center whitespace-nowrap"><i className="fas fa-times-circle mr-1"></i>Cancel</span>;
-                if(s === 'pending') return <span className="bg-orange-100 text-orange-700 border-orange-200 px-2 py-0.5 rounded text-[9px] font-bold uppercase border inline-flex items-center whitespace-nowrap"><i className="fas fa-clock mr-1"></i>Tertunda</span>;
-                return <span className="bg-blue-100 text-blue-700 border-blue-200 px-2 py-0.5 rounded text-[9px] font-bold uppercase border inline-flex items-center whitespace-nowrap"><i className="fas fa-truck mr-1"></i>Proses</span>;
+                if(s === 'sukses') return <span className="bg-green-100 text-green-700 border-green-200 px-2 py-0.5 rounded text-[9px] md:text-[10px] font-bold uppercase border inline-flex items-center whitespace-nowrap"><i className="fas fa-check-circle mr-1"></i>Sukses</span>;
+                if(s === 'cancel') return <span className="bg-red-100 text-red-700 border-red-200 px-2 py-0.5 rounded text-[9px] md:text-[10px] font-bold uppercase border inline-flex items-center whitespace-nowrap"><i className="fas fa-times-circle mr-1"></i>Cancel</span>;
+                if(s === 'pending') return <span className="bg-orange-100 text-orange-700 border-orange-200 px-2 py-0.5 rounded text-[9px] md:text-[10px] font-bold uppercase border inline-flex items-center whitespace-nowrap"><i className="fas fa-clock mr-1"></i>Tertunda</span>;
+                return <span className="bg-blue-100 text-blue-700 border-blue-200 px-2 py-0.5 rounded text-[9px] md:text-[10px] font-bold uppercase border inline-flex items-center whitespace-nowrap"><i className="fas fa-truck mr-1"></i>Proses</span>;
             };
 
             return (
-                <div className="min-h-screen bg-gray-100 font-sans max-w-lg mx-auto shadow-2xl relative flex flex-col">
-                    <header className="bg-white px-5 py-4 shadow-sm z-10 sticky top-0 flex justify-between items-center border-b border-gray-100">
+                <div className="min-h-screen bg-gray-100 font-sans w-full md:max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto shadow-2xl relative flex flex-col">
+                    <header className="bg-white px-5 py-4 md:py-6 shadow-sm z-10 sticky top-0 flex justify-between items-center border-b border-gray-100">
                         <div>
-                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-0.5">DASHBOARD TOKO</p>
-                            <h1 className="text-xl font-black text-[#e65c00] leading-none truncate max-w-[200px]">{userProfile.name}</h1>
+                            <p className="text-[10px] md:text-xs text-gray-500 font-bold uppercase tracking-widest mb-0.5">DASHBOARD TOKO</p>
+                            <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#e65c00] leading-none truncate max-w-[200px] md:max-w-[400px]">{userProfile.name}</h1>
                         </div>
-                        <button onClick={handleLogout} className="text-xs font-bold text-gray-600 hover:text-red-600 bg-gray-50 hover:bg-red-50 border border-gray-200 px-3 py-1.5 rounded-lg transition-colors flex items-center">
+                        <button onClick={handleLogout} className="text-xs md:text-sm font-bold text-gray-600 hover:text-red-600 bg-gray-50 hover:bg-red-50 border border-gray-200 px-3 py-1.5 md:px-4 md:py-2 rounded-lg transition-colors flex items-center">
                             Keluar <i className="fas fa-sign-out-alt ml-2"></i>
                         </button>
                     </header>
 
-                    <div className="flex-1 overflow-y-auto p-4 pb-10 space-y-4">
+                    <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-4 md:space-y-6 pb-10">
                         
-                        {/* Kartu Saldo */}
-                        <div className="bg-gradient-to-br from-[#e65c00] to-[#b34700] rounded-2xl p-5 text-white shadow-lg relative overflow-hidden">
-                            <div className="absolute -right-4 -top-4 opacity-10">
-                                <i className="fas fa-wallet text-[120px]"></i>
+                        {/* Area Atas: Saldo & Filter (Grid di layar besar) */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+                            
+                            {/* Kartu Saldo (Mengambil 1 kolom di layar besar) */}
+                            <div className="bg-gradient-to-br from-[#e65c00] to-[#b34700] rounded-2xl p-5 md:p-6 text-white shadow-lg relative overflow-hidden h-full flex flex-col justify-between">
+                                <div className="absolute -right-4 -top-4 opacity-10">
+                                    <i className="fas fa-wallet text-[120px] md:text-[150px]"></i>
+                                </div>
+                                <div className="relative z-10">
+                                    <div className="flex justify-between items-start mb-2 md:mb-4">
+                                        <p className="text-orange-100 text-xs md:text-sm font-semibold uppercase tracking-wider flex items-center"><i className="fas fa-wallet mr-1.5"></i> Estimasi Pencairan</p>
+                                        <button onClick={() => syncData()} disabled={isLoadingSync} className={`flex items-center bg-white/20 hover:bg-white/30 px-2.5 py-1 md:px-3 md:py-1.5 rounded-full transition-all ${isLoadingSync ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                            <i className={`fas fa-sync-alt text-white mr-1.5 text-xs md:text-sm ${isLoadingSync ? 'animate-spin' : ''}`}></i>
+                                            <span className="text-white text-[10px] md:text-xs font-bold">{isLoadingSync ? 'Memuat...' : 'Refresh'}</span>
+                                        </button>
+                                    </div>
+                                    <h2 className="text-3xl md:text-4xl lg:text-5xl font-black mb-3 md:mb-5 tracking-tight">{formatCurrency(keuangan.totalPencairanEstimasi)}</h2>
+                                    <div className="bg-[#993d00]/50 p-3 md:p-4 rounded-xl border border-white/10 space-y-2 text-xs md:text-sm mb-3 md:mb-4">
+                                        <div className="flex justify-between items-center"><span className="text-orange-50 flex items-center"><i className="fas fa-arrow-circle-up text-green-400 mr-1.5 md:mr-2"></i> Uang Terkumpul Kurir</span><span className="font-bold">+{formatCurrency(keuangan.saldoBelumCair)}</span></div>
+                                        <div className="flex justify-between items-center"><span className="text-orange-50 flex items-center"><i className="fas fa-arrow-circle-down text-red-300 mr-1.5 md:mr-2"></i> Potongan Ongkir</span><span className="font-bold text-red-200">-{formatCurrency(keuangan.potonganOngkir)}</span></div>
+                                    </div>
+                                    <div className="bg-green-600/90 border border-green-500 p-2.5 md:p-3 rounded-xl flex justify-between items-center shadow-inner">
+                                       <span className="flex items-center text-xs md:text-sm font-bold text-green-50"><i className="fas fa-shield-alt text-green-200 mr-1.5 md:mr-2"></i> Dana Telah Dicairkan</span>
+                                       <span className="font-black text-sm md:text-base text-white">{formatCurrency(keuangan.saldoSudahCair)}</span>
+                                    </div>
+                                </div>
                             </div>
-                            <div className="relative z-10">
-                                <div className="flex justify-between items-start mb-2">
-                                    <p className="text-orange-100 text-xs font-semibold uppercase tracking-wider flex items-center"><i className="fas fa-wallet mr-1.5"></i> Estimasi Pencairan</p>
-                                    <button onClick={() => syncData()} disabled={isLoadingSync} className={`flex items-center bg-white/20 hover:bg-white/30 px-2.5 py-1 rounded-full transition-all ${isLoadingSync ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                                        <i className={`fas fa-sync-alt text-white mr-1.5 text-xs ${isLoadingSync ? 'animate-spin' : ''}`}></i>
-                                        <span className="text-white text-[10px] font-bold">{isLoadingSync ? 'Memuat...' : 'Refresh'}</span>
-                                    </button>
-                                </div>
-                                <h2 className="text-3xl font-black mb-3 tracking-tight">{formatCurrency(keuangan.totalPencairanEstimasi)}</h2>
-                                <div className="bg-[#993d00]/50 p-3 rounded-xl border border-white/10 space-y-1.5 text-xs mb-3">
-                                    <div className="flex justify-between items-center"><span className="text-orange-50 flex items-center"><i className="fas fa-arrow-circle-up text-green-400 mr-1.5"></i> Uang Terkumpul Kurir</span><span className="font-bold">+{formatCurrency(keuangan.saldoBelumCair)}</span></div>
-                                    <div className="flex justify-between items-center"><span className="text-orange-50 flex items-center"><i className="fas fa-arrow-circle-down text-red-300 mr-1.5"></i> Potongan Ongkir</span><span className="font-bold text-red-200">-{formatCurrency(keuangan.potonganOngkir)}</span></div>
-                                </div>
-                                <div className="bg-green-600/90 border border-green-500 p-2.5 rounded-xl flex justify-between items-center shadow-inner">
-                                   <span className="flex items-center text-xs font-bold text-green-50"><i className="fas fa-shield-alt text-green-200 mr-1.5"></i> Dana Telah Dicairkan</span>
-                                   <span className="font-black text-sm text-white">{formatCurrency(keuangan.saldoSudahCair)}</span>
-                                </div>
-                            </div>
-                        </div>
 
-                        {/* Search & Filter Component */}
-                        <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 space-y-3">
-                            <div className="relative">
-                                <i className="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
-                                <input type="text" placeholder="Cari Resi atau Nama Customer..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none focus:border-[#e65c00] transition-colors" />
+                            {/* Search & Filter Component (Mengambil 2 kolom di layar besar) */}
+                            <div className="lg:col-span-2 bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-center space-y-4 md:space-y-5">
+                                <div className="relative">
+                                    <i className="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm md:text-base"></i>
+                                    <input type="text" placeholder="Cari Resi atau Nama Customer..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-3 md:py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-sm md:text-base outline-none focus:border-[#e65c00] focus:bg-white transition-colors" />
+                                </div>
+                                <div className="flex flex-col md:flex-row items-center gap-2 md:gap-4">
+                                    <div className="relative w-full md:flex-1"><i className="fas fa-calendar absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs md:text-sm"></i><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs md:text-sm outline-none focus:border-[#e65c00] text-gray-600 font-medium" /></div>
+                                    <span className="hidden md:block text-xs font-bold text-gray-400">Hingga</span>
+                                    <div className="relative w-full md:flex-1"><i className="fas fa-calendar absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs md:text-sm"></i><input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs md:text-sm outline-none focus:border-[#e65c00] text-gray-600 font-medium" /></div>
+                                    {(startDate || endDate) && (<button onClick={() => { setStartDate(''); setEndDate(''); }} className="p-2.5 md:p-3 bg-red-50 text-red-500 rounded-xl hover:bg-red-100 transition-colors w-full md:w-auto flex justify-center items-center" title="Reset Tanggal"><i className="fas fa-times-circle"></i></button>)}
+                                </div>
+                                <div className="flex space-x-2 overflow-x-auto pb-1 scrollbar-hide w-full">
+                                    {[{id:'semua', label:'Semua'}, {id:'siap_antar', label:'Proses'}, {id:'sukses', label:'Sukses'}, {id:'pending', label:'Pending'}, {id:'cancel', label:'Batal'}].map(s => (
+                                        <button key={s.id} onClick={() => setFilterStatus(s.id)} className={`px-4 py-2 md:px-5 md:py-2.5 rounded-xl text-xs md:text-sm font-bold whitespace-nowrap transition-all border ${filterStatus === s.id ? 'bg-[#e65c00] text-white border-[#e65c00] shadow-md' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50 hover:text-gray-700'}`}>{s.label}</button>
+                                    ))}
+                                </div>
                             </div>
-                            <div className="flex items-center space-x-2">
-                                <div className="relative flex-1"><i className="fas fa-calendar absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs"></i><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full pl-8 pr-2 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs outline-none focus:border-[#e65c00] text-gray-600 font-medium" /></div>
-                                <span className="text-xs font-bold text-gray-400">-</span>
-                                <div className="relative flex-1"><i className="fas fa-calendar absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs"></i><input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full pl-8 pr-2 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs outline-none focus:border-[#e65c00] text-gray-600 font-medium" /></div>
-                                {(startDate || endDate) && (<button onClick={() => { setStartDate(''); setEndDate(''); }} className="p-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-100 transition-colors" title="Reset Tanggal"><i className="fas fa-times-circle"></i></button>)}
-                            </div>
-                            <div className="flex space-x-2 overflow-x-auto pb-1 scrollbar-hide">
-                                {[{id:'semua', label:'Semua'}, {id:'siap_antar', label:'Proses'}, {id:'sukses', label:'Sukses'}, {id:'pending', label:'Pending'}, {id:'cancel', label:'Batal'}].map(s => (
-                                    <button key={s.id} onClick={() => setFilterStatus(s.id)} className={`px-3 py-1.5 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all border ${filterStatus === s.id ? 'bg-[#e65c00] text-white border-[#e65c00] shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>{s.label}</button>
-                                ))}
-                            </div>
+                            
                         </div>
 
                         {/* TAMPILAN TABEL PAKET + KOLOM FOTO */}
-                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                            <div className="px-4 py-3 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-                                <h3 className="font-bold text-gray-700 text-sm"><i className="fas fa-box text-[#e65c00] mr-2"></i>Daftar Paket</h3>
-                                <span className="text-[10px] font-bold bg-orange-100 text-[#e65c00] px-2 py-1 rounded-full">{filteredPkgs.length} Data</span>
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                            <div className="px-4 py-3 md:px-6 md:py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+                                <h3 className="font-bold text-gray-700 text-sm md:text-base"><i className="fas fa-box text-[#e65c00] mr-2"></i>Daftar Paket</h3>
+                                <span className="text-[10px] md:text-xs font-bold bg-orange-100 text-[#e65c00] px-3 py-1 md:py-1.5 rounded-full">{filteredPkgs.length} Data Ditemukan</span>
                             </div>
                             
                             {filteredPkgs.length === 0 ? (
-                                <div className="text-center py-10 bg-white">
-                                    <i className="fas fa-box-open text-gray-300 mb-2 text-4xl"></i>
-                                    <p className="text-gray-500 font-medium text-sm">Tidak ada paket di periode ini.</p>
+                                <div className="text-center py-16 md:py-20 bg-white">
+                                    <i className="fas fa-box-open text-gray-300 mb-3 text-5xl md:text-6xl"></i>
+                                    <p className="text-gray-500 font-medium text-sm md:text-base">Tidak ada paket di periode ini.</p>
                                 </div>
                             ) : (
-                                <div className="overflow-x-auto table-scroll">
-                                    <table className="w-full text-left border-collapse min-w-[500px]">
+                                <div className="overflow-x-auto table-scroll w-full">
+                                    <table className="w-full text-left border-collapse min-w-[600px] md:min-w-full">
                                         <thead>
-                                            <tr className="bg-gray-50 border-b border-gray-200 text-[10px] uppercase tracking-wider text-gray-500">
-                                                <th className="p-3 font-bold">Tgl & Resi</th>
-                                                <th className="p-3 font-bold">Penerima</th>
-                                                <th className="p-3 font-bold text-center">Status</th>
-                                                <th className="p-3 font-bold text-center">Bukti</th>
-                                                <th className="p-3 font-bold text-right">Keuangan</th>
+                                            <tr className="bg-gray-50 border-b border-gray-200 text-[10px] md:text-xs uppercase tracking-wider text-gray-500">
+                                                <th className="p-3 md:p-4 font-bold">Tgl & Resi</th>
+                                                <th className="p-3 md:p-4 font-bold">Penerima</th>
+                                                <th className="p-3 md:p-4 font-bold text-center">Status</th>
+                                                <th className="p-3 md:p-4 font-bold text-center">Bukti</th>
+                                                <th className="p-3 md:p-4 font-bold text-right">Keuangan</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="text-xs">
+                                        <tbody className="text-xs md:text-sm">
                                             {filteredPkgs.map((pkg, idx) => {
                                                 const metode = String(pkg.metodeBayar).trim().toUpperCase();
                                                 const hBarang = Number(pkg.hargaPaket) || 0;
@@ -365,20 +393,20 @@
                                                 }
 
                                                 return (
-                                                    <tr key={idx} className="border-b border-gray-100 hover:bg-orange-50/30 transition-colors">
-                                                        <td className="p-3 whitespace-nowrap">
+                                                    <tr key={idx} className="border-b border-gray-100 hover:bg-orange-50/50 transition-colors">
+                                                        <td className="p-3 md:p-4 whitespace-nowrap">
                                                             <div className="font-semibold text-gray-800">{displayTgl}</div>
-                                                            <div className="font-mono text-[9px] font-bold text-[#e65c00] bg-orange-50 px-1 py-0.5 rounded mt-0.5 inline-block">{pkg.packageId}</div>
+                                                            <div className="font-mono text-[9px] md:text-[10px] font-bold text-[#e65c00] bg-orange-50 border border-orange-100 px-1.5 py-0.5 rounded mt-1 inline-block">{pkg.packageId}</div>
                                                         </td>
-                                                        <td className="p-3">
+                                                        <td className="p-3 md:p-4">
                                                             <div className="font-bold text-gray-800 line-clamp-1">{pkg.customerName}</div>
-                                                            <div className="text-[10px] text-gray-500 mt-0.5"><i className="fas fa-phone text-gray-400 mr-1 w-3"></i>{pkg.customerPhone}</div>
-                                                            <div className="text-[9px] text-gray-400 mt-0.5"><i className="fas fa-truck text-gray-300 mr-1 w-3"></i>Kurir: {displayKurir}</div>
+                                                            <div className="text-[10px] md:text-xs text-gray-500 mt-1"><i className="fas fa-phone text-gray-400 mr-1.5 w-3 text-center"></i>{pkg.customerPhone}</div>
+                                                            <div className="text-[10px] md:text-xs text-gray-500 mt-0.5"><i className="fas fa-truck text-gray-400 mr-1.5 w-3 text-center"></i>Kurir: <span className="font-medium">{displayKurir}</span></div>
                                                         </td>
-                                                        <td className="p-3 text-center whitespace-nowrap align-middle">
+                                                        <td className="p-3 md:p-4 text-center whitespace-nowrap align-middle">
                                                             <StatusBadge status={pkg.status} />
                                                         </td>
-                                                        <td className="p-3 text-center whitespace-nowrap align-middle">
+                                                        <td className="p-3 md:p-4 text-center whitespace-nowrap align-middle">
                                                             {pkg.fotoBukti && String(pkg.fotoBukti).trim() !== '' ? (
                                                                 APPSHEET_APP_ID ? (
                                                                     <div 
@@ -388,31 +416,31 @@
                                                                         <img 
                                                                             src={`https://www.appsheet.com/template/gettablefileurl?appName=${APPSHEET_APP_ID}&tableName=InputPaket&fileName=${encodeURIComponent(pkg.fotoBukti)}`} 
                                                                             alt="Thumb" 
-                                                                            className="w-10 h-10 object-cover rounded shadow-sm border border-gray-200 mb-1"
+                                                                            className="w-10 h-10 md:w-12 md:h-12 object-cover rounded shadow-sm border border-gray-200 mb-1"
                                                                             loading="lazy"
                                                                         />
-                                                                        <span className="text-[8px] font-black uppercase text-blue-600 bg-blue-50 border border-blue-100 px-1 py-0.5 mt-0.5 rounded">FOTO PAKET</span>
+                                                                        <span className="text-[8px] md:text-[9px] font-black uppercase text-blue-600 bg-blue-50 border border-blue-100 px-1.5 py-0.5 mt-0.5 rounded">LIHAT FOTO</span>
                                                                     </div>
                                                                 ) : (
-                                                                    <span className="text-[10px] font-bold bg-blue-50 text-blue-600 px-2 py-1 rounded border border-blue-100 inline-flex items-center">
+                                                                    <span className="text-[10px] md:text-xs font-bold bg-blue-50 text-blue-600 px-2.5 py-1 rounded border border-blue-100 inline-flex items-center">
                                                                         <i className="fas fa-check-circle mr-1"></i>Ada
                                                                     </span>
                                                                 )
                                                             ) : (
-                                                                <span className="text-[10px] text-gray-400">-</span>
+                                                                <span className="text-[10px] md:text-xs text-gray-400 font-medium">-</span>
                                                             )}
                                                         </td>
-                                                        <td className="p-3 text-right whitespace-nowrap">
+                                                        <td className="p-3 md:p-4 text-right whitespace-nowrap">
                                                             {isSukses ? (
                                                                 (metode === 'TF OLSHOP' || metode === 'TF KANTOR') ? (
-                                                                    <div><div className="font-bold text-red-600">-{formatCurrency(ongkir)}</div><div className="text-[9px] font-bold text-red-400 uppercase mt-0.5">Ongkir ({metode})</div></div>
+                                                                    <div><div className="font-bold text-red-600 md:text-base">-{formatCurrency(ongkir)}</div><div className="text-[9px] md:text-[10px] font-bold text-red-400 uppercase mt-1">Ongkir ({metode})</div></div>
                                                                 ) : (metode === 'CASH') ? (
-                                                                    <div><div className={`font-bold ${isCair ? 'text-green-600' : 'text-[#e65c00]'}`}>{formatCurrency(hBarang)}</div><div className={`text-[9px] font-bold uppercase mt-0.5 px-1.5 py-0.5 rounded inline-block ${isCair ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{isCair ? 'TELAH CAIR' : 'BELUM CAIR'}</div></div>
+                                                                    <div><div className={`font-bold md:text-base ${isCair ? 'text-green-600' : 'text-[#e65c00]'}`}>{formatCurrency(hBarang)}</div><div className={`text-[9px] md:text-[10px] font-bold uppercase mt-1 px-1.5 py-0.5 rounded inline-block border ${isCair ? 'bg-green-100 text-green-700 border-green-200' : 'bg-orange-100 text-orange-700 border-orange-200'}`}>{isCair ? 'TELAH CAIR' : 'BELUM CAIR'}</div></div>
                                                                 ) : (
-                                                                    <div><div className="font-bold text-gray-500">{formatCurrency(hBarang)}</div><div className="text-[9px] font-bold text-gray-400 uppercase mt-0.5">Metode Kosong</div></div>
+                                                                    <div><div className="font-bold text-gray-500 md:text-base">{formatCurrency(hBarang)}</div><div className="text-[9px] md:text-[10px] font-bold text-gray-400 uppercase mt-1">Metode Kosong</div></div>
                                                                 )
                                                             ) : (
-                                                                <div><div className="font-bold text-gray-600">{formatCurrency(hBarang)}</div><div className="text-[9px] font-bold text-gray-400 uppercase mt-0.5">Nilai Barang</div></div>
+                                                                <div><div className="font-bold text-gray-600 md:text-base">{formatCurrency(hBarang)}</div><div className="text-[9px] md:text-[10px] font-bold text-gray-400 uppercase mt-1">Nilai Barang</div></div>
                                                             )}
                                                         </td>
                                                     </tr>
@@ -423,31 +451,31 @@
                                 </div>
                             )}
                         </div>
-                        <div className="text-center pt-2 pb-2"><p className="text-[10px] text-gray-400">Exceed Express Logistics &copy; 2026</p></div>
+                        <div className="text-center pt-2 pb-2"><p className="text-[10px] md:text-xs text-gray-400 font-medium">Exceed Express Logistics &copy; 2026</p></div>
                     </div>
 
                     {/* MODAL FOTO MEMBESAR */}
                     {selectedImage && (
                         <div 
-                            className="fixed inset-0 z-[999] flex items-center justify-center bg-black/85 p-4"
+                            className="fixed inset-0 z-[999] flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 transition-opacity"
                             onClick={() => setSelectedImage(null)}
                         >
                             <div 
-                               className="relative w-full max-w-md flex flex-col items-center"
+                               className="relative w-full max-w-lg md:max-w-2xl lg:max-w-4xl flex flex-col items-center transform transition-all scale-100"
                                onClick={(e) => e.stopPropagation()} 
                             >
                                 <button 
                                     onClick={() => setSelectedImage(null)}
-                                    className="absolute -top-12 right-0 text-white bg-red-500/80 hover:bg-red-500 w-10 h-10 rounded-full flex items-center justify-center transition-colors shadow-lg"
+                                    className="absolute -top-14 right-0 text-white bg-red-500/80 hover:bg-red-500 w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center transition-colors shadow-xl border border-white/20"
                                 >
-                                    <i className="fas fa-times text-xl"></i>
+                                    <i className="fas fa-times text-xl md:text-2xl"></i>
                                 </button>
                                 <img 
                                     src={selectedImage} 
                                     alt="Foto Paket Membesar" 
-                                    className="w-full max-h-[80vh] object-contain rounded-xl shadow-2xl border-4 border-white/10 bg-black/50"
+                                    className="w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl border-4 border-white/10 bg-black/50"
                                 />
-                                <p className="text-white font-black mt-4 tracking-widest text-sm uppercase flex items-center">
+                                <p className="text-white font-black mt-4 tracking-widest text-sm md:text-base uppercase flex items-center bg-black/50 px-4 py-2 rounded-full border border-white/10">
                                     <i className="fas fa-camera mr-2 text-blue-400"></i> FOTO PAKET
                                 </p>
                             </div>
