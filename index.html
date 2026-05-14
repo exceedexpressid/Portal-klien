@@ -461,41 +461,71 @@
                                                 {/* DETAIL KONTEN (MUNCUL HANYA JIKA DIKLIK) */}
                                                 {isExpanded && (
                                                     <div className="pl-3 pr-3 pb-3 pt-1 bg-gray-50/80 border-t border-gray-100 flex flex-col animate-fade-in-down">
-                                                        {/* Info Kontak & Kurir */}
-                                                        <div className="flex flex-wrap gap-x-2 gap-y-1.5 mt-1.5">
-                                                            <div className="text-[10px] md:text-[11px] text-gray-600 bg-white border border-gray-200 px-2 py-1 rounded-md flex items-center shadow-sm"><i className="fas fa-phone text-[#e65c00] mr-1.5"></i> {pkg.customerPhone}</div>
-                                                            <div className="text-[10px] md:text-[11px] text-gray-600 bg-white border border-gray-200 px-2 py-1 rounded-md flex items-center shadow-sm"><i className="fas fa-truck text-[#e65c00] mr-1.5"></i> <span className="font-medium">{displayKurir}</span></div>
+                                                        
+                                                        {/* Info Kontak, Kurir & Alamat (Lengkap) */}
+                                                        <div className="flex flex-col gap-1.5 mt-1.5">
+                                                            <div className="flex flex-wrap gap-x-2 gap-y-1.5">
+                                                                <div className="text-[10px] md:text-[11px] text-gray-600 bg-white border border-gray-200 px-2 py-1 rounded-md flex items-center shadow-sm"><i className="fas fa-phone text-[#e65c00] mr-1.5"></i> {pkg.customerPhone}</div>
+                                                                <div className="text-[10px] md:text-[11px] text-gray-600 bg-white border border-gray-200 px-2 py-1 rounded-md flex items-center shadow-sm"><i className="fas fa-truck text-[#e65c00] mr-1.5"></i> <span className="font-medium">{displayKurir}</span></div>
+                                                            </div>
+                                                            <div className="text-[10px] md:text-[11px] text-gray-600 bg-white border border-gray-200 px-2.5 py-2 rounded-md flex items-start shadow-sm w-full leading-relaxed">
+                                                                <i className="fas fa-map-marker-alt text-[#e65c00] mt-0.5 mr-2 w-3 text-center"></i> 
+                                                                <span className="flex-1">{pkg.address || 'Alamat tidak tersedia'}</span>
+                                                            </div>
                                                         </div>
 
-                                                        {/* Kotak Keuangan Detail */}
-                                                        <div className="bg-white rounded-md p-2.5 flex justify-between items-center border border-gray-200 shadow-sm mt-2.5">
-                                                            <span className="text-[9px] md:text-[10px] font-black text-gray-500 uppercase tracking-widest"><i className="fas fa-file-invoice-dollar mr-1 text-[#e65c00]"></i> Rincian Uang</span>
-                                                            <div className="text-right">
+                                                        {/* Kotak Keuangan Detail Terperinci */}
+                                                        <div className="bg-white rounded-md p-3 flex flex-col border border-gray-200 shadow-sm mt-2.5">
+                                                            <div className="flex justify-between items-center mb-2 border-b border-gray-100 pb-2">
+                                                                <span className="text-[9px] md:text-[10px] font-black text-gray-500 uppercase tracking-widest"><i className="fas fa-file-invoice-dollar mr-1 text-[#e65c00]"></i> Rincian Transaksi</span>
+                                                                <span className="text-[8px] md:text-[9px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded uppercase">{metode || 'METODE KOSONG'}</span>
+                                                            </div>
+                                                            
+                                                            <div className="space-y-1.5 text-[10px] md:text-[11px] w-full">
+                                                                <div className="flex justify-between items-center text-gray-600">
+                                                                    <span>Harga Barang</span>
+                                                                    <span className="font-medium">{formatCurrency(hBarang)}</span>
+                                                                </div>
+                                                                <div className="flex justify-between items-center text-gray-600">
+                                                                    <span>Ongkos Kirim</span>
+                                                                    <span className="font-medium">{formatCurrency(ongkir)}</span>
+                                                                </div>
+                                                                
+                                                                <div className="my-2 border-t border-dashed border-gray-200"></div>
+
+                                                                {/* Logika Detail Tagihan / Pencairan yang Mudah Dipahami Toko */}
                                                                 {isSukses ? (
                                                                     (metode === 'TF OLSHOP') ? (
-                                                                        <div>
-                                                                            <div className="font-black text-red-600 text-xs md:text-sm">-{formatCurrency(ongkir)}</div>
-                                                                            <div className="text-[8px] font-bold text-red-400 uppercase mt-0.5 tracking-wide">Potongan Ongkir ({metode})</div>
+                                                                        <div className="flex justify-between items-center">
+                                                                            <div className="flex flex-col">
+                                                                                <span className="font-bold text-red-500">Potongan Ongkir</span>
+                                                                                <span className="text-[7px] md:text-[8px] text-gray-400 mt-0.5">Ongkir dibayar Toko ke Kurir</span>
+                                                                            </div>
+                                                                            <span className="font-black text-red-600 text-xs md:text-sm">-{formatCurrency(ongkir)}</span>
                                                                         </div>
                                                                     ) : (metode === 'CASH' || metode === 'TF KANTOR') ? (
-                                                                        <div>
-                                                                            <div className={`font-black text-xs md:text-sm ${isCair ? 'text-green-600' : 'text-[#e65c00]'}`}>{formatCurrency(hBarang)}</div>
-                                                                            <div className={`text-[7px] md:text-[8px] font-black uppercase mt-0.5 px-1.5 py-0.5 rounded-full inline-block border ${isCair ? 'bg-green-100 text-green-700 border-green-200' : 'bg-orange-100 text-orange-700 border-orange-200'}`}>{isCair ? 'TELAH CAIR' : 'BELUM CAIR'}</div>
+                                                                        <div className="flex justify-between items-center">
+                                                                            <div className="flex flex-col">
+                                                                                <span className="font-bold text-[#e65c00]">Pencairan ke Toko</span>
+                                                                                <span className={`text-[7px] md:text-[8px] font-black uppercase mt-0.5 px-1.5 py-0.5 rounded-full inline-block border w-max ${isCair ? 'bg-green-100 text-green-700 border-green-200' : 'bg-orange-100 text-orange-700 border-orange-200'}`}>{isCair ? 'TELAH CAIR' : 'BELUM CAIR'}</span>
+                                                                            </div>
+                                                                            <span className={`font-black text-xs md:text-sm ${isCair ? 'text-green-600' : 'text-[#e65c00]'}`}>{formatCurrency(hBarang)}</span>
                                                                         </div>
                                                                     ) : (
-                                                                        <div>
-                                                                            <div className="font-bold text-gray-500 text-xs md:text-sm">{formatCurrency(hBarang)}</div>
-                                                                            <div className="text-[8px] font-bold text-gray-400 uppercase mt-0.5">Metode Kosong</div>
+                                                                        <div className="flex justify-between items-center">
+                                                                            <span className="font-bold text-gray-500">Total Tagihan Kurir</span>
+                                                                            <span className="font-black text-gray-600 text-xs md:text-sm">{formatCurrency(tagihan)}</span>
                                                                         </div>
                                                                     )
                                                                 ) : (
-                                                                    <div>
-                                                                        <div className="font-bold text-gray-600 text-xs md:text-sm">{formatCurrency(hBarang)}</div>
-                                                                        <div className="text-[8px] font-bold text-gray-400 uppercase mt-0.5 tracking-wide">Nilai Barang</div>
+                                                                    <div className="flex justify-between items-center">
+                                                                        <span className="font-bold text-gray-500">Estimasi Tagihan</span>
+                                                                        <span className="font-black text-gray-600 text-xs md:text-sm">{formatCurrency(tagihan)}</span>
                                                                     </div>
                                                                 )}
                                                             </div>
                                                         </div>
+
                                                     </div>
                                                 )}
                                             </div>
