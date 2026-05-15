@@ -16,10 +16,22 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
-        body { touch-action: manipulation; background-color: #f9fafb; font-family: 'Segoe UI', system-ui, sans-serif; }
+        body { touch-action: manipulation; background-color: #f3f4f6; font-family: 'Segoe UI', system-ui, sans-serif; }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-        /* Animasi Buka Tutup List */
+        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+        
+        /* Animasi Marquee (Running Text) */
+        .marquee-content {
+            display: inline-block;
+            white-space: nowrap;
+            animation: marquee 12s linear infinite;
+        }
+        @keyframes marquee {
+            0% { transform: translateX(100vw); }
+            100% { transform: translateX(-100%); }
+        }
+        
         @keyframes fadeInDown {
             0% { opacity: 0; transform: translateY(-5px); }
             100% { opacity: 1; transform: translateY(0); }
@@ -31,7 +43,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useMemo } = React;
 
         const loadLocal = (key, fallback) => {
             try { const item = localStorage.getItem(key); return item ? JSON.parse(item) : fallback; } catch (e) { return fallback; }
@@ -42,49 +54,44 @@
         };
 
         function App() {
-            // =====================================================================
-            // URL APPS SCRIPT & ID APPSHEET ANDA
-            // =====================================================================
+            // =================================================================================
+            // URL GOOGLE APPS SCRIPT ANDA
+            // =================================================================================
             const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzVHojspm17WSZU42RaMtgiNWJikRfGyTlPh1FczlDJS9JL52PxX0d9RpkNJYM4g424/exec"; 
             const APPSHEET_APP_ID = "APLIKASEXCEED-327461285";
 
-            // State User & UI
-            const [userProfile, setUserProfile] = useState(() => loadLocal('exceed_olshopProfile', null));
+            // State
+            const [userProfile, setUserProfile] = useState(() => loadLocal('ex_olshopProfile', null));
             const [isLoadingSync, setIsLoadingSync] = useState(false);
             const [syncMessage, setSyncMessage] = useState({ text: '', type: '' });
             
             const [loginUname, setLoginUname] = useState('');
             const [loginPass, setLoginPass] = useState('');
 
-            // Data State
-            const [packages, setPackages] = useState(() => loadLocal('exceed_packages', []));
-            const [masterOlshops, setMasterOlshops] = useState(() => loadLocal('exceed_masterOlshops', []));
+            const [packages, setPackages] = useState(() => loadLocal('ex_olshopPackages', []));
+            const [masterOlshops, setMasterOlshops] = useState(() => loadLocal('ex_masterOlshops', []));
             
-            // Filter State
             const [filterStatus, setFilterStatus] = useState('semua');
             const [searchQuery, setSearchQuery] = useState('');
             const [startDate, setStartDate] = useState('');
             const [endDate, setEndDate] = useState('');
-
-            // State Modal Gambar
+            
+            const [expandedIds, setExpandedIds] = useState([]);
             const [selectedImage, setSelectedImage] = useState(null);
 
-            // State List Melipat (Accordion) - Mencatat baris mana yang sedang dipencet/dibuka
-            const [expandedIds, setExpandedIds] = useState([]);
-
-            const toggleExpand = (id) => {
-                setExpandedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
-            };
+            const toggleExpand = (id) => setExpandedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
 
             // Save to Local Storage
-            useEffect(() => { localStorage.setItem('exceed_olshopProfile', JSON.stringify(userProfile)); }, [userProfile]);
-            useEffect(() => { localStorage.setItem('exceed_packages', JSON.stringify(packages)); }, [packages]);
-            useEffect(() => { localStorage.setItem('exceed_masterOlshops', JSON.stringify(masterOlshops)); }, [masterOlshops]);
+            useEffect(() => { localStorage.setItem('ex_olshopProfile', JSON.stringify(userProfile)); }, [userProfile]);
+            useEffect(() => { localStorage.setItem('ex_olshopPackages', JSON.stringify(packages)); }, [packages]);
+            useEffect(() => { localStorage.setItem('ex_masterOlshops', JSON.stringify(masterOlshops)); }, [masterOlshops]);
 
-            // Fetch Data dari Apps Script
+            // Fetch Data from Google Sheets
             const syncData = async (isLoginAttempt = false) => {
                 setIsLoadingSync(true);
-                if(!isLoginAttempt) setSyncMessage({ text: '', type: '' });
+                if(!isLoginAttempt) {
+                    setSyncMessage({ text: '', type: '' });
+                }
                 
                 try {
                     const response = await fetch(`${SCRIPT_URL}?action=getInitData&t=${new Date().getTime()}`);
@@ -117,12 +124,13 @@
                 }
             }, []);
 
-            // Login Handler KHUSUS OLSHOP
+            // Login Handler
             const handleLogin = async (e) => {
                 e.preventDefault();
                 setSyncMessage({ text: 'Sinkronisasi data terbaru...', type: 'info' });
 
                 const currentOlshops = await syncData(true) || [];
+
                 const uname = loginUname.trim().toLowerCase();
                 const pass = loginPass.trim();
 
@@ -134,26 +142,25 @@
                 if (validUser) {
                     setUserProfile({ id: validUser.id, name: validUser.nama });
                     setLoginUname(''); setLoginPass('');
-                    syncData(); // Tarik data paket setelah login
+                    syncData(); 
                 } else {
                     setSyncMessage({ text: 'Nama Toko atau Nomor WA tidak ditemukan!', type: 'error' });
                 }
             };
 
+            // Logout Handler
             const handleLogout = () => {
                 setUserProfile(null);
                 setPackages([]);
             };
 
-            // ==========================================
-            // RENDER HALAMAN LOGIN
-            // ==========================================
+            // Rendering Login Screen
             if (!userProfile) {
                 return (
                     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4 relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-full h-1/2 bg-[#e65c00] shadow-lg" style={{ borderBottomLeftRadius: '100% 20%', borderBottomRightRadius: '100% 20%' }}></div>
+                        <div className="absolute top-0 left-0 w-full h-1/2 bg-[#e65c00] rounded-b-[50px] shadow-lg"></div>
                         
-                        <div className="bg-white/95 backdrop-blur-md p-8 rounded-3xl shadow-2xl w-full max-w-sm text-center relative z-10 border border-white/50 mt-8">
+                        <div className="glass-card p-8 rounded-3xl shadow-2xl w-full max-w-sm text-center relative z-10 border border-white/50">
                             <div className="w-20 h-20 bg-orange-50 rounded-2xl flex items-center justify-center mx-auto mb-4 text-[#e65c00] shadow-inner">
                                 <i className="fas fa-box text-4xl"></i>
                             </div>
@@ -170,16 +177,16 @@
 
                                 <div className="relative">
                                     <i className="fas fa-store absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                                    <input type="text" required value={loginUname} onChange={(e) => setLoginUname(e.target.value)} placeholder="Ketik Nama Toko Anda" className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#e65c00] focus:bg-white transition-all font-medium" disabled={isLoadingSync} />
+                                    <input type="text" required value={loginUname} onChange={(e) => setLoginUname(e.target.value)} placeholder="Nama Toko Anda" className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#e65c00] focus:ring-2 focus:ring-orange-100 transition-all font-medium" disabled={isLoadingSync} />
                                 </div>
                                 
                                 <div className="relative">
                                     <i className="fas fa-phone absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                                    <input type="password" required value={loginPass} onChange={(e) => setLoginPass(e.target.value)} placeholder="Nomor WhatsApp" className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#e65c00] focus:bg-white transition-all font-medium" disabled={isLoadingSync} />
+                                    <input type="password" required value={loginPass} onChange={(e) => setLoginPass(e.target.value)} placeholder="Nomor WhatsApp" className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-[#e65c00] focus:ring-2 focus:ring-orange-100 transition-all font-medium" disabled={isLoadingSync} />
                                 </div>
 
                                 <button type="submit" disabled={isLoadingSync} className={`w-full text-white font-bold py-4 rounded-xl shadow-lg transition-all transform active:scale-95 flex justify-center items-center mt-2 ${isLoadingSync ? 'bg-gray-400 cursor-not-allowed shadow-none' : 'bg-[#e65c00] hover:bg-[#cc5200] shadow-[#e65c00]/30'}`}>
-                                    {isLoadingSync ? <><i className="fas fa-sync-alt animate-spin mr-2"></i> Memproses...</> : 'Masuk ke Portal'}
+                                    {isLoadingSync ? <><i className="fas fa-sync-alt animate-spin mr-2"></i> Memproses...</> : 'Masuk ke Dashboard'}
                                 </button>
                             </form>
                         </div>
@@ -187,40 +194,26 @@
                 );
             }
 
-            // ==========================================
-            // FILTER & LOGIKA KEUANGAN DASHBOARD
-            // ==========================================
+            // Data Processing for Dashboard
             const myPackages = packages.filter(p => {
+                const pOlshopName = String(p.olshopName).trim().toLowerCase();
                 const uName = String(userProfile.name).trim().toLowerCase();
                 const uId = String(userProfile.id).trim().toLowerCase();
-                const pOlshopName = String(p.olshopName).trim().toLowerCase();
-                
-                if (pOlshopName === uName || pOlshopName === uId || pOlshopName.includes(uName) || uName.includes(pOlshopName)) return true;
-                
-                for (const key in p) {
-                    const val = String(p[key]).trim().toLowerCase();
-                    if (val === uName || val === uId || val.includes(uName)) return true;
-                }
-                return false;
+                return pOlshopName === uName || pOlshopName === uId || pOlshopName.includes(uName) || uName.includes(pOlshopName);
             });
             
             let filteredPkgs = myPackages;
 
-            // 1. Filter Tanggal
             if (startDate || endDate) {
                filteredPkgs = filteredPkgs.filter(p => {
                   let pDateStr = p.dateString || p.tanggal || '';
                   if (!pDateStr) return false;
-
                   let normalizedDateStr = "";
-
                   try {
                       let d = new Date(pDateStr);
                       if (isNaN(d.getTime()) && pDateStr.includes('/')) {
                           const parts = pDateStr.split('/');
-                          if (parts.length === 3) {
-                              d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`); 
-                          }
+                          if (parts.length === 3) d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`); 
                       }
                       if (!isNaN(d.getTime())) {
                           const year = d.getFullYear();
@@ -233,14 +226,12 @@
                   } catch(e) {
                       normalizedDateStr = pDateStr.split('T')[0];
                   }
-
                   const sDate = startDate ? startDate : "2000-01-01";
                   const eDate = endDate ? endDate : "2100-01-01";
                   return normalizedDateStr >= sDate && normalizedDateStr <= eDate;
                });
             }
 
-            // 2. Filter Status & Search
             if (filterStatus !== 'semua') {
                 filteredPkgs = filteredPkgs.filter(p => {
                     let stat = String(p.status).toLowerCase().replace(' ', '_');
@@ -253,53 +244,98 @@
                 filteredPkgs = filteredPkgs.filter(p => p.customerName.toLowerCase().includes(searchQuery.toLowerCase()) || p.packageId.toLowerCase().includes(searchQuery.toLowerCase()));
             }
 
-            // 3. Kalkulasi Keuangan
+            // ==========================================
+            // LOGIKA KEUANGAN (DIPERBAIKI 100% AKURAT)
+            // ==========================================
             const hitungKeuangan = () => {
-                let saldoBelumCair = 0; let saldoSudahCair = 0; let potonganOngkir = 0; 
+                let saldoBelumCair = 0; // Hak uang barang yang BELUM dicairkan admin
+                let danaSudahCairBersih = 0; // TOTAL BERSIH YANG SUDAH DICAIRKAN (Uang Barang - Potongan Ongkir yang sudah dilunasi)
+                let potonganBelumCair = 0; // Hutang ongkir Olshop yang BELUM dipotong admin
+                let pktsSukses = 0;
+
                 filteredPkgs.forEach(p => {
                     if (String(p.status).toLowerCase() === 'sukses') {
+                        pktsSukses++;
                         const metode = String(p.metodeBayar).trim().toUpperCase();
-                        const hargaPkt = Number(p.hargaPaket) || 0;
+                        const hargaBarangAsli = Number(p.hargaPaket) || 0;
                         const tagihanTotal = Number(p.totalTagihan) || 0;
-                        const ongkirDihitung = p.ongkirReal !== undefined ? Number(p.ongkirReal) : ((tagihanTotal - hargaPkt > 0) ? (tagihanTotal - hargaPkt) : 0);
+                        
+                        // Hitung Ongkir
+                        let ongkirDihitung = p.ongkirReal !== undefined ? Number(p.ongkirReal) : 0;
+                        if (ongkirDihitung === 0 && tagihanTotal > hargaBarangAsli) {
+                            ongkirDihitung = tagihanTotal - hargaBarangAsli;
+                        }
+                        
                         const isCair = String(p.statusPencairan).toLowerCase() === 'cair';
 
+                        // LOGIKA MUTLAK
+                        // TF OLSHOP: Customer transfer semua ke Olshop. Olshop hutang ongkir ke Admin.
                         if (metode === 'TF OLSHOP') {
-                            potonganOngkir += ongkirDihitung;
-                        } else if (metode === 'CASH' || metode === 'TF KANTOR') {
-                            if (isCair) saldoSudahCair += hargaPkt;
-                            else saldoBelumCair += hargaPkt;
+                            if (isCair) {
+                                // Jika sudah "Cair", berarti admin sudah berhasil memotong tagihan ini dari saldo Olshop
+                                danaSudahCairBersih -= ongkirDihitung;
+                            } else {
+                                // Jika "Belum Cair", berarti ini masih jadi hutang aktif yang menumpuk
+                                potonganBelumCair += ongkirDihitung;
+                            }
+                        } 
+                        // CASH & TF KANTOR: Kurir/Admin pegang Harga Barang. Admin hutang ke Olshop.
+                        else if (metode === 'CASH' || metode === 'TF KANTOR') {
+                            if (isCair) {
+                                // Jika sudah "Cair", berarti admin sudah sukses mentransfer uang barang ini ke Olshop
+                                danaSudahCairBersih += hargaBarangAsli;
+                            } else {
+                                // Jika "Belum Cair", berarti uangnya masih tertahan di admin (saldo aktif)
+                                saldoBelumCair += hargaBarangAsli;
+                            }
                         }
                     }
                 });
-                return { saldoBelumCair, saldoSudahCair, potonganOngkir, totalPencairanEstimasi: saldoBelumCair - potonganOngkir };
+
+                // Estimasi Akhir Aktif = (Total Hak Uang yang belum dicairkan) - (Hutang ongkir yang belum dilunasi)
+                return { 
+                    saldoBelumCair, 
+                    danaSudahCairBersih, 
+                    potonganBelumCair, 
+                    totalPencairan: saldoBelumCair - potonganBelumCair, 
+                    pktsSukses 
+                };
             };
 
             const keuangan = hitungKeuangan();
 
-            // DIPERKECIL: Ukuran badge status disesuaikan
             const StatusBadge = ({ status }) => {
                 const s = String(status).toLowerCase();
                 if(s === 'sukses') return <span className="bg-green-100 text-green-700 border-green-200 px-2 py-0.5 rounded text-[8px] md:text-[9px] font-black uppercase border inline-flex items-center whitespace-nowrap"><i className="fas fa-check-circle mr-1"></i>Sukses</span>;
                 if(s === 'cancel') return <span className="bg-red-100 text-red-700 border-red-200 px-2 py-0.5 rounded text-[8px] md:text-[9px] font-black uppercase border inline-flex items-center whitespace-nowrap"><i className="fas fa-times-circle mr-1"></i>Cancel</span>;
-                if(s === 'pending') return <span className="bg-orange-100 text-orange-700 border-orange-200 px-2 py-0.5 rounded text-[8px] md:text-[9px] font-black uppercase border inline-flex items-center whitespace-nowrap"><i className="fas fa-clock mr-1"></i>Tertunda</span>;
+                if(s === 'pending') return <span className="bg-orange-100 text-orange-700 border-orange-200 px-2 py-0.5 rounded text-[8px] md:text-[9px] font-bold uppercase border inline-flex items-center whitespace-nowrap"><i className="fas fa-clock mr-1"></i>Tertunda</span>;
                 return <span className="bg-blue-100 text-blue-700 border-blue-200 px-2 py-0.5 rounded text-[8px] md:text-[9px] font-black uppercase border inline-flex items-center whitespace-nowrap"><i className="fas fa-truck mr-1"></i>Proses</span>;
             };
 
             return (
                 <div className="min-h-screen bg-gray-100 font-sans w-full md:max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto shadow-2xl relative flex flex-col">
-                    {/* PERUBAHAN: Header menjadi Biru Navy Gelap & Tulisan Putih */}
+                    {/* Header Utama */}
                     <header className="bg-[#0f172a] px-4 py-3 md:py-4 shadow-md z-10 sticky top-0 flex justify-between items-center border-b border-slate-800">
                         <div>
                             <p className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-0.5">DASHBOARD TOKO</p>
-                            <h1 className="text-lg md:text-xl lg:text-2xl font-black text-white leading-none truncate max-w-[200px] md:max-w-[400px]">{userProfile.name}</h1>
+                            <h1 className="text-lg md:text-xl lg:text-2xl font-black text-white leading-none truncate max-w-[200px] md:max-w-[400px] uppercase">{userProfile.name}</h1>
                         </div>
                         <button onClick={handleLogout} className="text-[10px] md:text-xs font-bold text-slate-200 hover:text-white bg-slate-800 hover:bg-red-500 border border-slate-700 px-3 py-1.5 md:px-4 md:py-1.5 rounded-lg transition-colors flex items-center shadow-sm">
                             Keluar <i className="fas fa-sign-out-alt ml-1.5 md:ml-2"></i>
                         </button>
                     </header>
 
-                    {/* DIPERKECIL: Padding keseluruhan halaman dikurangi */}
+                    {/* MARQUEE RUNNING TEXT (IKLAN) */}
+                    <div className="bg-[#fff7ed] border-b border-[#fed7aa] w-full overflow-hidden shadow-sm">
+                        <div className="marquee-content py-1.5 text-[11px] md:text-xs font-black tracking-wider text-[#ea580c] uppercase">
+                            <i className="fas fa-bolt mr-2"></i> Antar tuntas, harga pas &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                            <i className="fas fa-bolt mr-2"></i> Antar tuntas, harga pas &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                            <i className="fas fa-bolt mr-2"></i> Antar tuntas, harga pas &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                            <i className="fas fa-bolt mr-2"></i> Antar tuntas, harga pas &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                            <i className="fas fa-bolt mr-2"></i> Antar tuntas, harga pas 
+                        </div>
+                    </div>
+
                     <div className="flex-1 overflow-y-auto p-3 md:p-5 lg:p-6 space-y-3 md:space-y-4 pb-8">
                         
                         {/* Area Atas: Saldo & Filter */}
@@ -318,14 +354,17 @@
                                             <span className="text-white text-[9px] md:text-[10px] font-bold">{isLoadingSync ? 'Memuat...' : 'Refresh'}</span>
                                         </button>
                                     </div>
-                                    <h2 className="text-2xl md:text-3xl lg:text-4xl font-black mb-2 md:mb-4 tracking-tight">{formatCurrency(keuangan.totalPencairanEstimasi)}</h2>
+                                    
+                                    {/* Nilai Pencairan Bersih (Saldo - Potongan) */}
+                                    <h2 className="text-2xl md:text-3xl lg:text-4xl font-black mb-2 md:mb-4 tracking-tight">{formatCurrency(keuangan.totalPencairan)}</h2>
+                                    
                                     <div className="bg-[#993d00]/50 p-2.5 md:p-3 rounded-xl border border-white/10 space-y-1.5 text-[10px] md:text-xs mb-2 md:mb-3">
-                                        <div className="flex justify-between items-center"><span className="text-orange-50 flex items-center"><i className="fas fa-arrow-circle-up text-green-400 mr-1.5"></i> Pencairan (Cash/TF Ktr)</span><span className="font-bold">+{formatCurrency(keuangan.saldoBelumCair)}</span></div>
-                                        <div className="flex justify-between items-center"><span className="text-orange-50 flex items-center"><i className="fas fa-arrow-circle-down text-red-300 mr-1.5"></i> Potongan Ongkir</span><span className="font-bold text-red-200">-{formatCurrency(keuangan.potonganOngkir)}</span></div>
+                                        <div className="flex justify-between items-center"><span className="text-orange-50 flex items-center"><i className="fas fa-arrow-circle-up text-green-400 mr-1.5"></i> Uang Barang (Belum Cair)</span><span className="font-bold">+{formatCurrency(keuangan.saldoBelumCair)}</span></div>
+                                        <div className="flex justify-between items-center"><span className="text-orange-50 flex items-center"><i className="fas fa-arrow-circle-down text-red-300 mr-1.5"></i> Potongan Ongkir (Belum Cair)</span><span className="font-bold text-red-200">-{formatCurrency(keuangan.potonganBelumCair)}</span></div>
                                     </div>
                                     <div className="bg-green-600/90 border border-green-500 p-2 md:p-2.5 rounded-xl flex justify-between items-center shadow-inner">
                                        <span className="flex items-center text-[10px] md:text-xs font-bold text-green-50"><i className="fas fa-shield-alt text-green-200 mr-1.5"></i> Dana Telah Dicairkan</span>
-                                       <span className="font-black text-xs md:text-sm text-white">{formatCurrency(keuangan.saldoSudahCair)}</span>
+                                       <span className="font-black text-xs md:text-sm text-white">{formatCurrency(keuangan.danaSudahCairBersih)}</span>
                                     </div>
                                 </div>
                             </div>
@@ -350,7 +389,7 @@
                             </div>
                         </div>
 
-                        {/* TAMPILAN LIST MELIPAT (ACCORDION / BISA DIKLIK) */}
+                        {/* TAMPILAN LIST MELIPAT (ACCORDION) */}
                         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                             <div className="px-3 py-2.5 md:px-4 md:py-3 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
                                 <h3 className="font-bold text-gray-700 text-xs md:text-sm"><i className="fas fa-list text-[#e65c00] mr-2"></i>Daftar Paket</h3>
@@ -394,16 +433,15 @@
 
                                         return (
                                             <div key={idx} className="bg-white hover:bg-orange-50/20 transition-colors flex flex-col relative">
-                                                {/* Garis Aksen Samping berdasarkan Status */}
+                                                {/* Garis Aksen Samping */}
                                                 <div className={`absolute left-0 top-0 bottom-0 w-1 ${isSukses ? 'bg-green-500' : (String(pkg.status).toLowerCase() === 'cancel' ? 'bg-red-500' : 'bg-[#e65c00]')}`}></div>
 
-                                                {/* HEADER BARIS (SELALU MUNCUL, BISA DIKLIK) - DIPERKECIL PADDING & FONT */}
+                                                {/* HEADER BARIS */}
                                                 <div 
                                                     className="pl-2.5 md:pl-3 pr-2.5 md:pr-3 py-2.5 md:py-3 flex justify-between items-center cursor-pointer select-none gap-2"
                                                     onClick={() => toggleExpand(pkg.packageId)}
                                                 >
-                                                    {/* KIRI: Info Utama */}
-                                                    <div className="flex-1 min-w-0 pr-1">
+                                                    <div className="flex-1 min-w-0 pr-1 ml-1.5">
                                                         <div className="font-bold text-gray-800 text-[11px] md:text-sm line-clamp-1">{pkg.customerName}</div>
                                                         <div className="flex flex-wrap items-center mt-1 gap-1">
                                                             <span className="font-mono text-[8px] md:text-[9px] font-bold text-[#e65c00] bg-orange-50 border border-orange-100 px-1 py-0.5 rounded">{pkg.packageId}</span>
@@ -411,14 +449,13 @@
                                                         </div>
                                                     </div>
 
-                                                    {/* TENGAH: Thumbnail Foto (Mungil) */}
                                                     <div className="flex-shrink-0 flex items-center justify-center">
                                                         {pkg.fotoBukti && String(pkg.fotoBukti).trim() !== '' ? (
                                                             APPSHEET_APP_ID ? (
                                                                 <div 
                                                                     className="relative w-9 h-9 md:w-11 md:h-11 rounded-md border border-gray-200 overflow-hidden shadow-sm hover:opacity-80 transition-opacity"
                                                                     onClick={(e) => {
-                                                                        e.stopPropagation(); // Mencegah baris melar saat foto diklik
+                                                                        e.stopPropagation(); 
                                                                         setSelectedImage(`https://www.appsheet.com/template/gettablefileurl?appName=${APPSHEET_APP_ID}&tableName=InputPaket&fileName=${encodeURIComponent(pkg.fotoBukti)}`);
                                                                     }}
                                                                 >
@@ -444,13 +481,25 @@
                                                         )}
                                                     </div>
 
-                                                    {/* KANAN: Status & Uang */}
-                                                    <div className="flex flex-col items-end flex-shrink-0 space-y-1 w-[65px] md:w-[85px]">
+                                                    <div className="flex flex-col items-end flex-shrink-0 space-y-1 w-[70px] md:w-[85px]">
                                                         <StatusBadge status={pkg.status} />
                                                         <div className="flex items-center space-x-1 md:space-x-1.5 text-gray-400 mt-1">
-                                                            <span className={`text-[9px] md:text-[11px] font-bold truncate ${isSukses && isCair ? 'text-green-600' : (isSukses ? 'text-[#e65c00]' : 'text-gray-400')}`}>
-                                                                {isSukses && (metode === 'CASH' || metode === 'TF KANTOR') ? formatCurrency(hBarang) : (isSukses && metode === 'TF OLSHOP' ? `-${formatCurrency(ongkir)}` : '-')}
-                                                            </span>
+                                                            
+                                                            {/* LOGIKA UANG DI BARIS DEPAN */}
+                                                            {isSukses ? (
+                                                                metode === 'TF OLSHOP' ? (
+                                                                    <span className="text-[9px] md:text-[11px] font-bold truncate text-red-500">
+                                                                        -{formatCurrency(ongkir)}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className={`text-[9px] md:text-[11px] font-bold truncate ${isCair ? 'text-green-600' : 'text-[#e65c00]'}`}>
+                                                                        +{formatCurrency(hBarang)}
+                                                                    </span>
+                                                                )
+                                                            ) : (
+                                                                <span className="text-[9px] md:text-[11px] font-bold truncate text-gray-400">-</span>
+                                                            )}
+
                                                             <div className={`w-3.5 h-3.5 md:w-4 md:h-4 flex items-center justify-center flex-shrink-0 rounded-full ${isExpanded ? 'bg-orange-100 text-[#e65c00]' : 'bg-gray-100 text-gray-400'}`}>
                                                                 <i className={`fas fa-chevron-${isExpanded ? 'up' : 'down'} text-[7px] md:text-[8px] transition-transform`}></i>
                                                             </div>
@@ -458,74 +507,43 @@
                                                     </div>
                                                 </div>
 
-                                                {/* DETAIL KONTEN (MUNCUL HANYA JIKA DIKLIK) */}
+                                                {/* DETAIL KONTEN */}
                                                 {isExpanded && (
                                                     <div className="pl-3 pr-3 pb-3 pt-1 bg-gray-50/80 border-t border-gray-100 flex flex-col animate-fade-in-down">
-                                                        
-                                                        {/* Info Kontak, Kurir & Alamat (Lengkap) */}
-                                                        <div className="flex flex-col gap-1.5 mt-1.5">
-                                                            <div className="flex flex-wrap gap-x-2 gap-y-1.5">
-                                                                <div className="text-[10px] md:text-[11px] text-gray-600 bg-white border border-gray-200 px-2 py-1 rounded-md flex items-center shadow-sm"><i className="fas fa-phone text-[#e65c00] mr-1.5"></i> {pkg.customerPhone}</div>
-                                                                <div className="text-[10px] md:text-[11px] text-gray-600 bg-white border border-gray-200 px-2 py-1 rounded-md flex items-center shadow-sm"><i className="fas fa-truck text-[#e65c00] mr-1.5"></i> <span className="font-medium">{displayKurir}</span></div>
-                                                            </div>
-                                                            <div className="text-[10px] md:text-[11px] text-gray-600 bg-white border border-gray-200 px-2.5 py-2 rounded-md flex items-start shadow-sm w-full leading-relaxed">
-                                                                <i className="fas fa-map-marker-alt text-[#e65c00] mt-0.5 mr-2 w-3 text-center"></i> 
-                                                                <span className="flex-1">{pkg.address || 'Alamat tidak tersedia'}</span>
-                                                            </div>
+                                                        <div className="flex flex-wrap gap-x-2 gap-y-1.5 mt-1.5">
+                                                            <div className="text-[10px] md:text-[11px] text-gray-600 bg-white border border-gray-200 px-2 py-1 rounded-md flex items-center shadow-sm"><i className="fas fa-phone text-[#e65c00] mr-1.5"></i> {pkg.customerPhone}</div>
+                                                            <div className="text-[10px] md:text-[11px] text-gray-600 bg-white border border-gray-200 px-2 py-1 rounded-md flex items-center shadow-sm"><i className="fas fa-truck text-[#e65c00] mr-1.5"></i> <span className="font-medium">{displayKurir}</span></div>
                                                         </div>
 
-                                                        {/* Kotak Keuangan Detail Terperinci */}
-                                                        <div className="bg-white rounded-md p-3 flex flex-col border border-gray-200 shadow-sm mt-2.5">
-                                                            <div className="flex justify-between items-center mb-2 border-b border-gray-100 pb-2">
-                                                                <span className="text-[9px] md:text-[10px] font-black text-gray-500 uppercase tracking-widest"><i className="fas fa-file-invoice-dollar mr-1 text-[#e65c00]"></i> Rincian Transaksi</span>
-                                                                <span className="text-[8px] md:text-[9px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded uppercase">{metode || 'METODE KOSONG'}</span>
-                                                            </div>
-                                                            
-                                                            <div className="space-y-1.5 text-[10px] md:text-[11px] w-full">
-                                                                <div className="flex justify-between items-center text-gray-600">
-                                                                    <span>Harga Barang</span>
-                                                                    <span className="font-medium">{formatCurrency(hBarang)}</span>
-                                                                </div>
-                                                                <div className="flex justify-between items-center text-gray-600">
-                                                                    <span>Ongkos Kirim</span>
-                                                                    <span className="font-medium">{formatCurrency(ongkir)}</span>
-                                                                </div>
-                                                                
-                                                                <div className="my-2 border-t border-dashed border-gray-200"></div>
-
-                                                                {/* Logika Detail Tagihan / Pencairan yang Mudah Dipahami Toko */}
+                                                        {/* Kotak Keuangan Detail */}
+                                                        <div className="bg-white rounded-md p-2.5 flex justify-between items-center border border-gray-200 shadow-sm mt-2.5">
+                                                            <span className="text-[9px] md:text-[10px] font-black text-gray-500 uppercase tracking-widest"><i className="fas fa-file-invoice-dollar mr-1 text-[#e65c00]"></i> Rincian Uang</span>
+                                                            <div className="text-right">
                                                                 {isSukses ? (
                                                                     (metode === 'TF OLSHOP') ? (
-                                                                        <div className="flex justify-between items-center">
-                                                                            <div className="flex flex-col">
-                                                                                <span className="font-bold text-red-500">Potongan Ongkir</span>
-                                                                                <span className="text-[7px] md:text-[8px] text-gray-400 mt-0.5">Ongkir dibayar Toko ke Kurir</span>
-                                                                            </div>
-                                                                            <span className="font-black text-red-600 text-xs md:text-sm">-{formatCurrency(ongkir)}</span>
+                                                                        <div>
+                                                                            <div className={`font-black text-xs md:text-sm ${isCair ? 'text-gray-400 line-through' : 'text-red-600'}`}>-{formatCurrency(ongkir)}</div>
+                                                                            <div className={`text-[7px] md:text-[8px] font-black uppercase mt-0.5 px-1.5 py-0.5 rounded-full inline-block border ${isCair ? 'bg-gray-100 text-gray-500 border-gray-200' : 'bg-red-100 text-red-700 border-red-200'}`}>Potongan Ongkir ({isCair ? 'SUDAH LUNAS' : 'BELUM DILUNASI'})</div>
                                                                         </div>
                                                                     ) : (metode === 'CASH' || metode === 'TF KANTOR') ? (
-                                                                        <div className="flex justify-between items-center">
-                                                                            <div className="flex flex-col">
-                                                                                <span className="font-bold text-[#e65c00]">Pencairan ke Toko</span>
-                                                                                <span className={`text-[7px] md:text-[8px] font-black uppercase mt-0.5 px-1.5 py-0.5 rounded-full inline-block border w-max ${isCair ? 'bg-green-100 text-green-700 border-green-200' : 'bg-orange-100 text-orange-700 border-orange-200'}`}>{isCair ? 'TELAH CAIR' : 'BELUM CAIR'}</span>
-                                                                            </div>
-                                                                            <span className={`font-black text-xs md:text-sm ${isCair ? 'text-green-600' : 'text-[#e65c00]'}`}>{formatCurrency(hBarang)}</span>
+                                                                        <div>
+                                                                            <div className={`font-black text-xs md:text-sm ${isCair ? 'text-green-600' : 'text-[#e65c00]'}`}>+{formatCurrency(hBarang)}</div>
+                                                                            <div className={`text-[7px] md:text-[8px] font-black uppercase mt-0.5 px-1.5 py-0.5 rounded-full inline-block border ${isCair ? 'bg-green-100 text-green-700 border-green-200' : 'bg-orange-100 text-orange-700 border-orange-200'}`}>Pencairan {metode} ({isCair ? 'CAIR' : 'BELUM CAIR'})</div>
                                                                         </div>
                                                                     ) : (
-                                                                        <div className="flex justify-between items-center">
-                                                                            <span className="font-bold text-gray-500">Total Tagihan Kurir</span>
-                                                                            <span className="font-black text-gray-600 text-xs md:text-sm">{formatCurrency(tagihan)}</span>
+                                                                        <div>
+                                                                            <div className="font-bold text-gray-500 text-xs md:text-sm">{formatCurrency(hBarang)}</div>
+                                                                            <div className="text-[8px] font-bold text-gray-400 uppercase mt-0.5">Metode Kosong</div>
                                                                         </div>
                                                                     )
                                                                 ) : (
-                                                                    <div className="flex justify-between items-center">
-                                                                        <span className="font-bold text-gray-500">Estimasi Tagihan</span>
-                                                                        <span className="font-black text-gray-600 text-xs md:text-sm">{formatCurrency(tagihan)}</span>
+                                                                    <div>
+                                                                        <div className="font-bold text-gray-600 text-xs md:text-sm">{formatCurrency(hBarang)}</div>
+                                                                        <div className="text-[8px] font-bold text-gray-400 uppercase mt-0.5 tracking-wide">Nilai Barang</div>
                                                                     </div>
                                                                 )}
                                                             </div>
                                                         </div>
-
                                                     </div>
                                                 )}
                                             </div>
