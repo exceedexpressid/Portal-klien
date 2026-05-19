@@ -142,6 +142,9 @@
             );
         }
 
+        // ==========================================
+        // KOMPONEN UTAMA APLIKASI
+        // ==========================================
         function App() {
             const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzVHojspm17WSZU42RaMtgiNWJikRfGyTlPh1FczlDJS9JL52PxX0d9RpkNJYM4g424/exec"; 
             const APPSHEET_APP_ID = "APLIKASEXCEED-327461285";
@@ -209,7 +212,8 @@
             };
 
             useEffect(() => {
-                if (masterOlshops.length === 0 && !userProfile) { syncData(); }
+                // Tarik data terbaru setiap buka/refresh web agar angka langsung berubah
+                syncData();
             }, []);
 
             const handleLogin = async (e) => {
@@ -323,6 +327,40 @@
             }
 
             // ===============================================
+            // FUNGSI TARIK DATA MURNI DARI SPREADSHEET (ANTI-MALSU)
+            // ===============================================
+            const parseKeuanganPkg = (pkg) => {
+                const hBarang = Number(pkg.hargaPaket) || 0;
+                const tagihan = Number(pkg.totalTagihan) || 0;
+                
+                // Pengecekan ketat pembacaan sumber tanpa manipulasi
+                const getVal = (keys) => {
+                    for (let k of keys) {
+                        if (pkg[k] !== undefined && pkg[k] !== null && pkg[k] !== '') {
+                            // Hapus text (seperti "Rp" atau ".") agar angka dari sheets tidak error
+                            const cleanStr = String(pkg[k]).replace(/[^\d.-]/g, '');
+                            return cleanStr === '' ? 0 : Number(cleanStr);
+                        }
+                    }
+                    return null; // Benar-benar tidak ada kolom
+                };
+
+                // Ongkir Dasar
+                let oDasar = getVal(['ongkirDasar', 'ongkirReal', 'ongkir']);
+                if (oDasar === null) {
+                    oDasar = tagihan - hBarang > 0 ? tagihan - hBarang : 0;
+                }
+
+                // Ongkir Tambahan (MURNI DATABASE! JIKA SPREADSHEET 0 = TETAP 0)
+                let oTambahan = getVal(['ongkirTambahan', 'ongkir_tambahan', 'ongkirVolume', 'ongkir_volume', 'ongkirVol', 'tambahan', 'ongkirTambahanReal']);
+                if (oTambahan === null) {
+                    oTambahan = 0; 
+                }
+
+                return { hBarang, tagihan, oDasar, oTambahan };
+            };
+
+            // ===============================================
             // LOGIKA FINANSIAL UTAMA / ESTIMASI PENCAIRAN
             // ===============================================
             const hitungKeuangan = () => {
@@ -333,27 +371,27 @@
                 filteredPkgs.forEach(p => {
                     if (String(p.status).toLowerCase() === 'sukses') {
                         const metode = String(p.metodeBayar).trim().toUpperCase();
-                        const hargaBarangAsli = Number(p.hargaPaket) || 0;
-                        const tagihanTotal = Number(p.totalTagihan) || 0;
                         
-                        const oDasar = Number(p.ongkirDasar) || Number(p.ongkirReal) || Number(p.ongkir) || (tagihanTotal - hargaBarangAsli > 0 ? (tagihanTotal - hargaBarangAsli) : 0);
-                        const oTambahan = Number(p.ongkirTambahan) || Number(p.ongkir_tambahan) || Number(p.ongkirVolume) || Number(p.ongkir_volume) || Number(p.ongkirVol) || Number(p.tambahan) || 0;
-                        const totalOngkir = oDasar + oTambahan;
+                        // Tarik nilai murni
+                        const { hBarang, oDasar } = parseKeuanganPkg(p);
+                        
+                        // ONGKIR TAMBAHAN TIDAK MENGURANGI SETORAN OLSHOP
+                        const bebanOngkirOlshop = oDasar;
 
                         const isCair = String(p.statusPencairan).toLowerCase() === 'cair';
 
                         if (metode === 'TF OLSHOP') {
                             if (isCair) {
-                                danaSudahCairBersih -= totalOngkir;
+                                danaSudahCairBersih -= bebanOngkirOlshop;
                             } else {
-                                potonganBelumCair += totalOngkir; 
+                                potonganBelumCair += bebanOngkirOlshop; 
                             }
                         } 
                         else if (metode === 'CASH' || metode === 'TF KANTOR' || metode === 'COD') {
                             if (isCair) {
-                                danaSudahCairBersih += hargaBarangAsli;
+                                danaSudahCairBersih += hBarang;
                             } else {
-                                saldoBelumCair += hargaBarangAsli;
+                                saldoBelumCair += hBarang;
                             }
                         }
                     }
@@ -380,11 +418,9 @@
 
                     if(stat === 'sukses') {
                         const metode = String(p.metodeBayar).trim().toUpperCase();
-                        const hBarang = Number(p.hargaPaket) || 0;
-                        const tagihan = Number(p.totalTagihan) || 0;
                         
-                        const oDasar = Number(p.ongkirDasar) || Number(p.ongkirReal) || Number(p.ongkir) || (tagihan - hBarang > 0 ? (tagihan - hBarang) : 0);
-                        const oTambahan = Number(p.ongkirTambahan) || Number(p.ongkir_tambahan) || Number(p.ongkirVolume) || Number(p.ongkir_volume) || Number(p.ongkirVol) || Number(p.tambahan) || 0;
+                        // Tarik nilai murni
+                        const { hBarang, oDasar, oTambahan } = parseKeuanganPkg(p);
 
                         ongkirDasar += oDasar;
                         ongkirTambahan += oTambahan;
@@ -392,7 +428,8 @@
                         if (metode === 'CASH' || metode === 'TF KANTOR' || metode === 'COD') {
                             uangBarang += hBarang;
                         } else if (metode === 'TF OLSHOP') {
-                            totalBebanOngkirOlshop += (oDasar + oTambahan);
+                            // ONGKIR TAMBAHAN TIDAK MEMOTONG SETORAN
+                            totalBebanOngkirOlshop += oDasar;
                         }
                     }
                 });
@@ -479,7 +516,7 @@
                         {/* UI SUMMARY GLOBAL */}
                         {/* ========================================================= */}
                         <div className="bg-[#1e2336] rounded-xl overflow-hidden shadow-lg border border-[#2a3147] text-white font-sans">
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-y-4 gap-x-2 p-3 md:p-4 items-center text-center md:text-left divide-y md:divide-y-0 md:divide-x divide-[#2a3147]">
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-y-4 gap-x-2 p-3 md:p-4 items-center text-center md:text-left divide-y md:divide-y-0 md:divide-x divide-[#2a3147]">
                                 <div className="col-span-2 md:col-span-1 flex flex-col justify-center items-center pb-2 md:pb-0">
                                     <div className="text-[9px] md:text-[10px] text-gray-400 font-bold mb-2 uppercase tracking-widest">TOTAL STATUS PKT</div>
                                     <div className="flex gap-1.5">
@@ -509,9 +546,13 @@
                                     <div className="text-[9px] md:text-[10px] text-[#f87171] font-bold mb-1 uppercase tracking-widest">BEBAN ONGKIR (TF OLSHOP)</div>
                                     <div className="text-sm md:text-base font-black text-[#f87171]">{ringkasan.totalBebanOngkirOlshop > 0 ? '-' : ''}{formatCurrency(ringkasan.totalBebanOngkirOlshop)}</div>
                                 </div>
-                                <div className="flex flex-col md:items-center pt-2 md:pt-0 bg-[#252b41] md:bg-transparent -mx-3 md:mx-0 px-3 md:px-0 pb-1 rounded">
+                                <div className="flex flex-col md:items-center pt-2 md:pt-0">
+                                    <div className="text-[9px] md:text-[10px] text-[#fb923c] font-bold mb-1 uppercase tracking-widest">ONGKIR TAMBAHAN</div>
+                                    <div className="text-sm md:text-base font-black text-[#fb923c]">+{formatCurrency(ringkasan.ongkirTambahan)}</div>
+                                </div>
+                                <div className="flex flex-col md:items-center pt-2 md:pt-0 bg-[#252b41] md:bg-transparent -mx-3 md:mx-0 px-3 md:px-0 pb-1 rounded col-span-2 md:col-span-1">
                                     <div className="text-[9px] md:text-[10px] text-white font-bold mb-1 uppercase tracking-widest">TOTAL BERSIH</div>
-                                    <div className="text-base md:text-lg font-black text-[#fb923c]">{formatCurrency(ringkasan.totalBersih)}</div>
+                                    <div className="text-base md:text-lg font-black text-[#34d399]">{formatCurrency(ringkasan.totalBersih)}</div>
                                 </div>
                             </div>
                         </div>
@@ -549,16 +590,13 @@
                                         {/* ISI TABEL (DAFTAR PAKET) */}
                                         {filteredPkgs.map((pkg, idx) => {
                                             const isMapShown = showMapIds.includes(pkg.packageId);
-                                            const hBarang = Number(pkg.hargaPaket) || 0;
-                                            const tagihan = Number(pkg.totalTagihan) || 0;
                                             const metode = String(pkg.metodeBayar).trim().toUpperCase();
-                                            
-                                            const oDasar = Number(pkg.ongkirDasar) || Number(pkg.ongkirReal) || Number(pkg.ongkir) || (tagihan - hBarang > 0 ? (tagihan - hBarang) : 0);
-                                            const oTambahan = Number(pkg.ongkirTambahan) || Number(pkg.ongkir_tambahan) || Number(pkg.ongkirVolume) || Number(pkg.ongkir_volume) || Number(pkg.ongkirVol) || Number(pkg.tambahan) || 0;
-                                            
                                             const isSukses = String(pkg.status).toLowerCase() === 'sukses';
                                             const isProses = ['siap_antar', 'proses'].includes(String(pkg.status).toLowerCase().replace(' ', '_'));
 
+                                            // TARIK DATA MURNI TANPA MANIPULASI
+                                            const { hBarang, tagihan, oDasar, oTambahan } = parseKeuanganPkg(pkg);
+                                            
                                             let displayKurir = String(pkg.kurirId || '');
                                             let displayTglFull = String(pkg.dateString || pkg.tanggal || '-');
                                             let displayInputTglFull = String(pkg.tanggalInput || pkg.tanggal || '-');
