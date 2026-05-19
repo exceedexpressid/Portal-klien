@@ -65,7 +65,7 @@
             return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount || 0);
         };
 
-        // KOMPONEN PETA MAP INDEPENDEN UNTUK SETIAP BARIS RESI
+        // KOMPONEN PETA MAP INDEPENDEN
         function TrackingMap({ packageId, address, status, lastSuccessId }) {
             const mapRef = useRef(null);
             
@@ -78,7 +78,6 @@
                     if (!container) return;
                     if (container._leaflet_id) return;
 
-                    // LOGIKA CERDAS: Gunakan lokasi sukses terakhir untuk yang sedang proses antar
                     let baseIdForHash = packageId;
                     if (isProses && lastSuccessId) {
                         baseIdForHash = lastSuccessId;
@@ -133,8 +132,8 @@
             }, [packageId, address, status, lastSuccessId]);
 
             return (
-                <div className="bg-[#1e2336] p-2.5 rounded-xl border border-[#2a3147] shadow-inner animate-fade-in-down mt-2">
-                    <div className="flex justify-between items-center mb-1.5 text-[9px] md:text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                <div className="bg-[#1e2336] p-2.5 rounded-xl border border-[#2a3147] shadow-inner h-full min-h-[220px]">
+                    <div className="flex justify-between items-center mb-2 text-[9px] md:text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                         <span><i className={`fas ${isProses ? 'fa-satellite-dish text-blue-400 animate-pulse' : 'fa-map-marked-alt text-[#34d399]'} mr-1.5`}></i> {isProses ? 'Live Tracking Kurir' : 'Geolokasi Pengantaran'}</span>
                         <span className="text-gray-500">Dilindungi Sandi</span>
                     </div>
@@ -147,7 +146,6 @@
             const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzVHojspm17WSZU42RaMtgiNWJikRfGyTlPh1FczlDJS9JL52PxX0d9RpkNJYM4g424/exec"; 
             const APPSHEET_APP_ID = "APLIKASEXCEED-327461285";
 
-            // SEMUA HOOKS DIDEKLARASIKAN DI ATAS UNTUK MENCEGAH ERROR REACT #310
             const [userProfile, setUserProfile] = useState(() => loadLocal('ex_olshopProfile', null));
             const [isLoadingSync, setIsLoadingSync] = useState(false);
             const [syncMessage, setSyncMessage] = useState({ text: '', type: '' });
@@ -163,19 +161,15 @@
             const [startDate, setStartDate] = useState('');
             const [endDate, setEndDate] = useState('');
             
-            // State untuk Accordion & Map
-            const [expandedCustomers, setExpandedCustomers] = useState([]); 
             const [showMapIds, setShowMapIds] = useState([]); 
             const [selectedImage, setSelectedImage] = useState(null);
 
-            const toggleCustomerExpand = (name) => setExpandedCustomers(prev => prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]);
             const toggleMap = (id) => setShowMapIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
 
             useEffect(() => { localStorage.setItem('ex_olshopProfile', JSON.stringify(userProfile)); }, [userProfile]);
             useEffect(() => { localStorage.setItem('ex_olshopPackages', JSON.stringify(packages)); }, [packages]);
             useEffect(() => { localStorage.setItem('ex_masterOlshops', JSON.stringify(masterOlshops)); }, [masterOlshops]);
 
-            // HELPER: Resolver URL Foto AppSheet Terintegrasi
             const getFotoUrl = (pkg) => {
                 const fileKey = pkg.fotoBukti || pkg.foto_bukti || pkg.foto || pkg.bukti || pkg.gambar;
                 if (!fileKey || String(fileKey).trim() === '') return null;
@@ -245,7 +239,6 @@
                 setPackages([]);
             };
 
-            // HALAMAN LOGIN
             if (!userProfile) {
                 return (
                     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4 relative overflow-hidden">
@@ -281,7 +274,6 @@
                 );
             }
 
-            // PROSES DATA JIKA SUDAH LOGIN
             const myPackages = packages.filter(p => {
                 const pOlshopName = String(p.olshopName).trim().toLowerCase();
                 const uName = String(userProfile.name).trim().toLowerCase();
@@ -289,7 +281,6 @@
                 return pOlshopName === uName || pOlshopName === uId || pOlshopName.includes(uName) || uName.includes(pOlshopName);
             });
 
-            // Target ID Map Animasi (Lokasi sukses terakhir)
             const lastSuccessPackage = [...myPackages].reverse().find(p => String(p.status).toLowerCase() === 'sukses');
             const globalLastSuccessId = lastSuccessPackage ? lastSuccessPackage.packageId : 'DEFAULT123';
             
@@ -332,57 +323,15 @@
             }
 
             // ===============================================
-            // LOGIKA PENGELOMPOKAN BERDASARKAN CUSTOMER 
+            // LOGIKA FINANSIAL UTAMA / ESTIMASI PENCAIRAN
             // ===============================================
-            const groups = {};
-            filteredPkgs.forEach(pkg => {
-                const cName = String(pkg.customerName || 'Tanpa Nama').trim().toUpperCase();
-                if(!groups[cName]) {
-                    groups[cName] = {
-                        customerName: cName,
-                        packages: [],
-                        s_sukses: 0, s_proses: 0, s_pending: 0, s_cancel: 0,
-                        uangBarang: 0, ongkirDasar: 0, ongkirTambahan: 0, totalBersih: 0
-                    };
-                }
-                const g = groups[cName];
-                g.packages.push(pkg);
-                
-                let stat = String(pkg.status).toLowerCase().replace(' ', '_');
-                if(stat === 'sukses') g.s_sukses++;
-                else if(stat === 'siap_antar' || stat === 'proses') g.s_proses++;
-                else if(stat === 'pending') g.s_pending++;
-                else if(stat === 'cancel') g.s_cancel++;
-
-                const hBarang = Number(pkg.hargaPaket) || 0;
-                const tagihan = Number(pkg.totalTagihan) || 0;
-                const metode = String(pkg.metodeBayar).trim().toUpperCase();
-                
-                // Kalkulasi Ongkir Dinamis & Tambahan dari AppSheet
-                const oDasar = Number(pkg.ongkirDasar) || Number(pkg.ongkirReal) || Number(pkg.ongkir) || (tagihan - hBarang > 0 ? (tagihan - hBarang) : 0);
-                const oTambahan = Number(pkg.ongkirTambahan) || Number(pkg.ongkir_tambahan) || Number(pkg.ongkirVolume) || Number(pkg.ongkir_volume) || Number(pkg.ongkirVol) || Number(pkg.tambahan) || 0;
-
-                if(stat === 'sukses') {
-                    g.ongkirDasar += oDasar;
-                    g.ongkirTambahan += oTambahan;
-                    
-                    if (metode === 'CASH' || metode === 'TF KANTOR' || metode === 'COD') {
-                        g.uangBarang += hBarang;
-                    }
-                }
-                g.totalBersih = g.uangBarang - g.ongkirDasar - g.ongkirTambahan;
-            });
-            const groupedCustomers = Object.values(groups).sort((a,b) => b.packages.length - a.packages.length);
-
             const hitungKeuangan = () => {
                 let saldoBelumCair = 0; 
                 let danaSudahCairBersih = 0; 
                 let potonganBelumCair = 0; 
-                let pktsSukses = 0;
 
                 filteredPkgs.forEach(p => {
                     if (String(p.status).toLowerCase() === 'sukses') {
-                        pktsSukses++;
                         const metode = String(p.metodeBayar).trim().toUpperCase();
                         const hargaBarangAsli = Number(p.hargaPaket) || 0;
                         const tagihanTotal = Number(p.totalTagihan) || 0;
@@ -394,28 +343,33 @@
                         const isCair = String(p.statusPencairan).toLowerCase() === 'cair';
 
                         if (metode === 'TF OLSHOP') {
-                            if (isCair) danaSudahCairBersih -= totalOngkir;
-                            else potonganBelumCair += totalOngkir;
+                            if (isCair) {
+                                danaSudahCairBersih -= totalOngkir;
+                            } else {
+                                potonganBelumCair += totalOngkir; 
+                            }
                         } 
                         else if (metode === 'CASH' || metode === 'TF KANTOR' || metode === 'COD') {
                             if (isCair) {
-                                danaSudahCairBersih += (hargaBarangAsli - totalOngkir);
+                                danaSudahCairBersih += hargaBarangAsli;
                             } else {
                                 saldoBelumCair += hargaBarangAsli;
-                                potonganBelumCair += totalOngkir;
                             }
                         }
                     }
                 });
 
-                return { saldoBelumCair, danaSudahCairBersih, potonganBelumCair, totalPencairan: saldoBelumCair - potonganBelumCair, pktsSukses };
+                return { saldoBelumCair, danaSudahCairBersih, potonganBelumCair, totalPencairan: saldoBelumCair - potonganBelumCair };
             };
 
             const keuangan = hitungKeuangan();
 
+            // ===============================================
+            // LOGIKA TABEL REKAPITULASI BAWAH
+            // ===============================================
             const hitungRingkasanTabel = () => {
                 let s_sukses = 0, s_proses = 0, s_pending = 0, s_cancel = 0;
-                let uangBarang = 0, ongkirDasar = 0, ongkirTambahan = 0, totalBersih = 0;
+                let uangBarang = 0, ongkirDasar = 0, ongkirTambahan = 0, totalBebanOngkirOlshop = 0, totalBersih = 0;
 
                 filteredPkgs.forEach(p => {
                     let stat = String(p.status).toLowerCase().replace(' ', '_');
@@ -437,22 +391,24 @@
 
                         if (metode === 'CASH' || metode === 'TF KANTOR' || metode === 'COD') {
                             uangBarang += hBarang;
+                        } else if (metode === 'TF OLSHOP') {
+                            totalBebanOngkirOlshop += (oDasar + oTambahan);
                         }
                     }
                 });
-                totalBersih = uangBarang - ongkirDasar - ongkirTambahan;
-                return { s_sukses, s_proses, s_pending, s_cancel, uangBarang, ongkirDasar, ongkirTambahan, totalBersih };
+                totalBersih = uangBarang - totalBebanOngkirOlshop;
+                return { s_sukses, s_proses, s_pending, s_cancel, uangBarang, ongkirDasar, ongkirTambahan, totalBersih, totalBebanOngkirOlshop };
             };
 
             const ringkasan = hitungRingkasanTabel();
 
-            // Status Badge untuk tampilan List Resi (Nested)
+            // Badge Status yang disesuaikan
             const StatusBadge = ({ status }) => {
                 const s = String(status).toLowerCase();
-                if(s === 'sukses') return <span className="bg-[#153a2b] text-[#34d399] px-2 py-0.5 rounded text-[9px] font-bold border border-[#1d4f3b] shadow-sm"><i className="fas fa-check-circle mr-1"></i>Sukses</span>;
-                if(s === 'cancel') return <span className="bg-[#450a0a] text-[#f87171] px-2 py-0.5 rounded text-[9px] font-bold border border-[#7f1d1d] shadow-sm"><i className="fas fa-times-circle mr-1"></i>Cancel</span>;
-                if(s === 'pending') return <span className="bg-[#431407] text-[#fb923c] px-2 py-0.5 rounded text-[9px] font-bold border border-[#7c2d12] shadow-sm"><i className="fas fa-clock mr-1"></i>Tertunda</span>;
-                return <span className="bg-[#1e3a8a] text-[#60a5fa] px-2 py-0.5 rounded text-[9px] font-bold border border-[#1e40af] shadow-sm"><i className="fas fa-truck mr-1 animate-pulse"></i>Proses Antar</span>;
+                if(s === 'sukses') return <span className="bg-[#153a2b] text-[#34d399] px-2 py-0.5 rounded text-[9px] font-bold border border-[#1d4f3b] shadow-sm uppercase tracking-wide"><i className="fas fa-check-circle mr-1"></i>Sukses</span>;
+                if(s === 'cancel') return <span className="bg-[#450a0a] text-[#f87171] px-2 py-0.5 rounded text-[9px] font-bold border border-[#7f1d1d] shadow-sm uppercase tracking-wide"><i className="fas fa-times-circle mr-1"></i>Cancel</span>;
+                if(s === 'pending') return <span className="bg-[#431407] text-[#fb923c] px-2 py-0.5 rounded text-[9px] font-bold border border-[#7c2d12] shadow-sm uppercase tracking-wide"><i className="fas fa-clock mr-1"></i>Tertunda</span>;
+                return <span className="bg-[#1e3a8a] text-[#60a5fa] px-2 py-0.5 rounded text-[9px] font-bold border border-[#1e40af] shadow-sm uppercase tracking-wide"><i className="fas fa-truck mr-1 animate-pulse"></i>Proses</span>;
             };
 
             return (
@@ -477,7 +433,6 @@
 
                     <div className="flex-1 overflow-y-auto p-3 md:p-5 lg:p-6 space-y-4 md:space-y-5 pb-8">
                         
-                        {/* Area Atas: Saldo & Filter */}
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
                             <div className="bg-gradient-to-br from-[#e65c00] to-[#b34700] rounded-2xl p-4 md:p-5 text-white shadow-md relative overflow-hidden h-full flex flex-col justify-between">
                                 <div className="absolute -right-2 -top-2 opacity-10"><i className="fas fa-wallet text-[100px] md:text-[120px]"></i></div>
@@ -491,8 +446,8 @@
                                     </div>
                                     <h2 className="text-2xl md:text-3xl lg:text-4xl font-black mb-2 md:mb-4 tracking-tight">{formatCurrency(keuangan.totalPencairan)}</h2>
                                     <div className="bg-[#993d00]/50 p-2.5 md:p-3 rounded-xl border border-white/10 space-y-1.5 text-[10px] md:text-xs mb-2 md:mb-3">
-                                        <div className="flex justify-between items-center"><span className="text-orange-50 flex items-center"><i className="fas fa-arrow-circle-up text-green-400 mr-1.5"></i> Uang Barang (Belum Cair)</span><span className="font-bold">+{formatCurrency(keuangan.saldoBelumCair)}</span></div>
-                                        <div className="flex justify-between items-center"><span className="text-orange-50 flex items-center"><i className="fas fa-arrow-circle-down text-red-300 mr-1.5"></i> Potongan Ongkir (Belum Cair)</span><span className="font-bold text-red-200">-{formatCurrency(keuangan.potonganBelumCair)}</span></div>
+                                        <div className="flex justify-between items-center"><span className="text-orange-50 flex items-center"><i className="fas fa-arrow-circle-up text-green-400 mr-1.5"></i> Harga Barang (Hak Olshop)</span><span className="font-bold">+{formatCurrency(keuangan.saldoBelumCair)}</span></div>
+                                        <div className="flex justify-between items-center"><span className="text-orange-50 flex items-center"><i className="fas fa-arrow-circle-down text-red-300 mr-1.5"></i> Beban Ongkir TF Olshop</span><span className="font-bold text-red-200">-{formatCurrency(keuangan.potonganBelumCair)}</span></div>
                                     </div>
                                     <div className="bg-green-600/90 border border-green-500 p-2 md:p-2.5 rounded-xl flex justify-between items-center shadow-inner">
                                        <span className="flex items-center text-[10px] md:text-xs font-bold text-green-50"><i className="fas fa-shield-alt text-green-200 mr-1.5"></i> Dana Telah Dicairkan</span>
@@ -504,7 +459,7 @@
                             <div className="lg:col-span-2 bg-white p-3 md:p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-center space-y-3 md:space-y-4">
                                 <div className="relative">
                                     <i className="fas fa-search absolute left-3.5 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs md:text-sm"></i>
-                                    <input type="text" placeholder="Cari Resi atau Nama Customer..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-9 pr-3 py-2.5 md:py-3 bg-gray-50 border border-gray-200 rounded-xl text-xs md:text-sm outline-none focus:border-[#e65c00] focus:bg-white transition-colors" />
+                                    <input type="text" placeholder="Cari Resi atau Nama Penerima..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-9 pr-3 py-2.5 md:py-3 bg-gray-50 border border-gray-200 rounded-xl text-xs md:text-sm outline-none focus:border-[#e65c00] focus:bg-white transition-colors" />
                                 </div>
                                 <div className="flex flex-col md:flex-row items-center gap-2 md:gap-3">
                                     <div className="relative w-full md:flex-1"><i className="fas fa-calendar absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-[10px] md:text-xs"></i><input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full pl-8 pr-2 py-2 bg-gray-50 border border-gray-200 rounded-xl text-[10px] md:text-xs outline-none focus:border-[#e65c00] text-gray-600 font-medium" /></div>
@@ -521,10 +476,10 @@
                         </div>
 
                         {/* ========================================================= */}
-                        {/* UI SUMMARY GLOBAL ALA DARK THEME */}
+                        {/* UI SUMMARY GLOBAL */}
                         {/* ========================================================= */}
                         <div className="bg-[#1e2336] rounded-xl overflow-hidden shadow-lg border border-[#2a3147] text-white font-sans">
-                            <div className="grid grid-cols-2 md:grid-cols-5 gap-y-4 gap-x-2 p-3 md:p-4 items-center text-center md:text-left divide-y md:divide-y-0 md:divide-x divide-[#2a3147]">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-y-4 gap-x-2 p-3 md:p-4 items-center text-center md:text-left divide-y md:divide-y-0 md:divide-x divide-[#2a3147]">
                                 <div className="col-span-2 md:col-span-1 flex flex-col justify-center items-center pb-2 md:pb-0">
                                     <div className="text-[9px] md:text-[10px] text-gray-400 font-bold mb-2 uppercase tracking-widest">TOTAL STATUS PKT</div>
                                     <div className="flex gap-1.5">
@@ -547,16 +502,12 @@
                                     </div>
                                 </div>
                                 <div className="flex flex-col md:items-center pt-2 md:pt-0">
-                                    <div className="text-[9px] md:text-[10px] text-[#34d399] font-bold mb-1 uppercase tracking-widest">BARANG (COD/CASH)</div>
+                                    <div className="text-[9px] md:text-[10px] text-[#34d399] font-bold mb-1 uppercase tracking-widest">BARANG (CASH/TF KTR)</div>
                                     <div className="text-sm md:text-base font-black text-[#34d399]">+{formatCurrency(ringkasan.uangBarang)}</div>
                                 </div>
                                 <div className="flex flex-col md:items-center pt-2 md:pt-0">
-                                    <div className="text-[9px] md:text-[10px] text-[#f87171] font-bold mb-1 uppercase tracking-widest">ONGKIR DASAR</div>
-                                    <div className="text-sm md:text-base font-black text-[#f87171]">{ringkasan.ongkirDasar > 0 ? '-' : ''}{formatCurrency(ringkasan.ongkirDasar)}</div>
-                                </div>
-                                <div className="flex flex-col md:items-center pt-2 md:pt-0">
-                                    <div className="text-[9px] md:text-[10px] text-[#fb923c] font-bold mb-1 uppercase tracking-widest">ONGKIR TAMB / VOL</div>
-                                    <div className="text-sm md:text-base font-black text-[#fb923c]">{ringkasan.ongkirTambahan > 0 ? '-' : ''}{formatCurrency(ringkasan.ongkirTambahan)}</div>
+                                    <div className="text-[9px] md:text-[10px] text-[#f87171] font-bold mb-1 uppercase tracking-widest">BEBAN ONGKIR (TF OLSHOP)</div>
+                                    <div className="text-sm md:text-base font-black text-[#f87171]">{ringkasan.totalBebanOngkirOlshop > 0 ? '-' : ''}{formatCurrency(ringkasan.totalBebanOngkirOlshop)}</div>
                                 </div>
                                 <div className="flex flex-col md:items-center pt-2 md:pt-0 bg-[#252b41] md:bg-transparent -mx-3 md:mx-0 px-3 md:px-0 pb-1 rounded">
                                     <div className="text-[9px] md:text-[10px] text-white font-bold mb-1 uppercase tracking-widest">TOTAL BERSIH</div>
@@ -566,431 +517,215 @@
                         </div>
 
                         {/* ========================================================= */}
-                        {/* DAFTAR PAKET - MEMANJANG (HORIZONTAL) */}
+                        {/* DAFTAR PAKET - FLAT LIST (LEBIH RAPAT) */}
                         {/* ========================================================= */}
                         <div className="mt-6 flex flex-col">
                             <div className="px-1 md:px-2 pb-3 flex justify-between items-end border-b border-gray-300 mb-2">
-                                <h3 className="font-black text-gray-700 text-sm md:text-lg"><i className="fas fa-users text-[#e65c00] mr-2"></i>Daftar Customer</h3>
-                                <span className="text-[10px] font-bold bg-gray-200 text-gray-600 px-3 py-1 rounded-full">{groupedCustomers.length} Pelanggan</span>
+                                <h3 className="font-black text-gray-700 text-sm md:text-lg"><i className="fas fa-box text-[#e65c00] mr-2"></i>Daftar Paket</h3>
+                                <span className="text-[10px] font-bold bg-gray-200 text-gray-600 px-3 py-1 rounded-full">{filteredPkgs.length} Paket</span>
                             </div>
 
-                            {groupedCustomers.length === 0 ? (
+                            {filteredPkgs.length === 0 ? (
                                 <div className="text-center py-16 bg-white rounded-xl border border-gray-200 shadow-sm mt-2">
                                     <i className="fas fa-box-open text-gray-300 mb-3 text-5xl"></i>
                                     <p className="text-gray-500 font-medium text-sm">Tidak ada data paket untuk ditampilkan.</p>
                                 </div>
                             ) : (
-                                /* WRAPPER SCROLL HORIZONTAL */
-                                <div className="overflow-x-auto w-full bg-[#1e2336] rounded-xl border border-[#2a3147] shadow-lg pb-2">
-                                    <div className="min-w-[1000px] flex flex-col font-sans">
+                                <div className="overflow-x-auto w-full bg-[#1e2336] rounded-xl border border-[#2a3147] shadow-lg pb-2 scrollbar-hide">
+                                    {/* MIN-WIDTH DIKURANGI DARI 1250px MENJADI 900px AGAR LEBIH RAPAT */}
+                                    <div className="min-w-[900px] flex flex-col font-sans">
                                         
-                                        {/* HEADER TABEL MEMANJANG */}
-                                        <div className="grid grid-cols-[280px_230px_1fr_1fr_1fr_1fr] gap-4 px-4 py-3 text-[10px] text-gray-400 font-bold uppercase tracking-widest bg-[#151928] border-b border-[#2a3147]">
-                                            <div>NAMA TOKO / OLSHOP</div>
-                                            <div className="flex justify-center">STATUS PKT</div>
-                                            <div className="flex justify-center">BARANG (CAIR)</div>
-                                            <div className="flex justify-center">ONGKIR DASAR</div>
-                                            <div className="flex justify-center text-center">ONGKIR TAMB / VOL</div>
-                                            <div className="flex justify-end pr-2">TOTAL BERSIH</div>
+                                        {/* HEADER TABEL */}
+                                        <div className="grid grid-cols-[130px_minmax(180px,1fr)_150px_110px_100px_130px_70px] gap-3 px-4 py-3 text-[10px] text-gray-400 font-bold uppercase tracking-widest bg-[#151928] border-b border-[#2a3147] items-center">
+                                            <div>RESI & TGL</div>
+                                            <div>PENERIMA & KURIR</div>
+                                            <div>STATUS</div>
+                                            <div className="text-right">TAGIHAN & MTD</div>
+                                            <div className="text-right">BRG (HRG)</div>
+                                            <div className="text-right">ONGKIR (DSR+TMB)</div>
+                                            <div className="text-center">BUKTI</div>
                                         </div>
 
-                                        {/* ISI TABEL (CUSTOMER) */}
-                                        {groupedCustomers.map((group, idx) => {
-                                            const isGroupExpanded = expandedCustomers.includes(group.customerName);
+                                        {/* ISI TABEL (DAFTAR PAKET) */}
+                                        {filteredPkgs.map((pkg, idx) => {
+                                            const isMapShown = showMapIds.includes(pkg.packageId);
+                                            const hBarang = Number(pkg.hargaPaket) || 0;
+                                            const tagihan = Number(pkg.totalTagihan) || 0;
+                                            const metode = String(pkg.metodeBayar).trim().toUpperCase();
                                             
+                                            const oDasar = Number(pkg.ongkirDasar) || Number(pkg.ongkirReal) || Number(pkg.ongkir) || (tagihan - hBarang > 0 ? (tagihan - hBarang) : 0);
+                                            const oTambahan = Number(pkg.ongkirTambahan) || Number(pkg.ongkir_tambahan) || Number(pkg.ongkirVolume) || Number(pkg.ongkir_volume) || Number(pkg.ongkirVol) || Number(pkg.tambahan) || 0;
+                                            
+                                            const isSukses = String(pkg.status).toLowerCase() === 'sukses';
+                                            const isProses = ['siap_antar', 'proses'].includes(String(pkg.status).toLowerCase().replace(' ', '_'));
+
+                                            let displayKurir = String(pkg.kurirId || '');
+                                            let displayTglFull = String(pkg.dateString || pkg.tanggal || '-');
+                                            let displayInputTglFull = String(pkg.tanggalInput || pkg.tanggal || '-');
+
+                                            if (displayKurir.includes('T') && displayKurir.length > 10 && /\d/.test(displayKurir)) {
+                                                let tempDate = displayKurir; displayKurir = displayTglFull; displayTglFull = tempDate;
+                                            }
+                                            if (!displayKurir || displayKurir === '' || displayKurir === 'undefined') displayKurir = '-';
+                                            else if (displayKurir.includes('@')) displayKurir = displayKurir.split('@')[0];
+
+                                            const parseWaktuShort = (tglStr) => {
+                                                if (!tglStr || tglStr === '-') return '-';
+                                                try {
+                                                    let raw = new Date(tglStr);
+                                                    if (isNaN(raw.getTime()) && tglStr.includes('/')) {
+                                                        const parts = tglStr.split('/');
+                                                        if (parts.length === 3) raw = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`); 
+                                                    }
+                                                    if(!isNaN(raw.getTime())) {
+                                                        const year = raw.getFullYear();
+                                                        const month = String(raw.getMonth() + 1).padStart(2, '0');
+                                                        const day = String(raw.getDate()).padStart(2, '0');
+                                                        return `${year}-${month}-${day}`;
+                                                    }
+                                                } catch(e) {}
+                                                return tglStr.includes('T') ? tglStr.split('T')[0] : tglStr;
+                                            };
+
+                                            const parseWaktu = (tglStr) => {
+                                                if (tglStr === '-') return '-';
+                                                try {
+                                                    const raw = new Date(tglStr);
+                                                    if(!isNaN(raw.getTime())) {
+                                                        const tgl = raw.toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'});
+                                                        const hasTime = tglStr.includes(':') || tglStr.includes(' ') || (tglStr.includes('T') && !tglStr.endsWith('T00:00:00') && !tglStr.endsWith('T00:00:00.000Z') && !tglStr.endsWith('00:00:00'));
+                                                        if (hasTime && (raw.getHours() !== 0 || raw.getMinutes() !== 0)) {
+                                                            return tgl + " - " + raw.toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'}) + " WIT";
+                                                        }
+                                                        return tgl;
+                                                    }
+                                                } catch(e) {}
+                                                return tglStr.includes('T') ? tglStr.split('T')[0] : tglStr;
+                                            };
+                                            
+                                            displayTglFull = parseWaktu(displayTglFull);
+                                            displayInputTglFull = parseWaktu(displayInputTglFull);
+                                            const resolvedUrlFoto = getFotoUrl(pkg);
+
                                             return (
-                                                <div key={idx} className="flex flex-col border-b border-[#2a3147] last:border-0 hover:bg-[#252b41] transition-colors">
+                                                <div key={idx} className={`flex flex-col border-b border-[#2a3147] last:border-0 transition-colors cursor-pointer ${isMapShown ? 'bg-[#252b41]' : 'hover:bg-[#252b41]'}`} onClick={() => toggleMap(pkg.packageId)}>
                                                     
-                                                    {/* BARIS CUSTOMER (1 BARIS MEMANJANG) */}
-                                                    <div 
-                                                        className="grid grid-cols-[280px_230px_1fr_1fr_1fr_1fr] gap-4 px-4 py-3.5 items-center cursor-pointer"
-                                                        onClick={() => toggleCustomerExpand(group.customerName)}
-                                                    >
-                                                        {/* Kolom 1: Chevron, Nama & Daftar Resi Mini di Bawahnya */}
-                                                        <div className="flex flex-col gap-1 min-w-0 pr-2">
-                                                            <div className="flex items-center gap-2.5">
-                                                                <div className={`w-5 h-5 shrink-0 rounded bg-[#2a3147] flex items-center justify-center text-gray-400 transition-transform ${isGroupExpanded ? 'rotate-180' : ''}`}>
-                                                                    <i className="fas fa-chevron-down text-[10px]"></i>
+                                                    {/* BARIS UTAMA PAKET */}
+                                                    <div className="grid grid-cols-[130px_minmax(180px,1fr)_150px_110px_100px_130px_70px] gap-3 px-4 py-3.5 items-center">
+                                                        
+                                                        {/* 1. RESI & TGL */}
+                                                        <div className="flex flex-col gap-1.5 items-start">
+                                                            <div className="border border-[#e65c00]/40 bg-[#e65c00]/10 text-[#e65c00] rounded px-2 py-1 text-[11px] font-bold tracking-wider">
+                                                                {pkg.packageId}
+                                                            </div>
+                                                            <div className="text-gray-500 text-[10px] flex items-center font-medium">
+                                                                <i className="far fa-calendar-alt mr-1.5"></i> {parseWaktuShort(pkg.dateString || pkg.tanggal)}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* 2. PENERIMA & KURIR */}
+                                                        <div className="flex flex-col gap-1">
+                                                            <div className="text-white font-bold text-[13px] truncate">{pkg.customerName || 'Tanpa nama'}</div>
+                                                            <div className="text-gray-400 text-[10px] flex items-center">
+                                                                <i className="fas fa-phone-alt mr-1.5 text-gray-500 w-3 text-center"></i> {pkg.customerPhone || '-'}
+                                                            </div>
+                                                            <div className="text-gray-400 text-[10px] flex items-center">
+                                                                <i className="fas fa-motorcycle mr-1.5 text-gray-500 w-3 text-center"></i> {displayKurir}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* 3. STATUS */}
+                                                        <div className="flex flex-wrap items-center gap-1.5">
+                                                            <StatusBadge status={pkg.status} />
+                                                            {String(pkg.statusPencairan).toLowerCase() === 'cair' && (
+                                                                <span className="bg-[#064e3b] text-[#34d399] px-2 py-0.5 rounded text-[9px] font-bold border border-[#065f46]">TELAH CAIR</span>
+                                                            )}
+                                                        </div>
+
+                                                        {/* 4. TAGIHAN & MTD */}
+                                                        <div className="flex flex-col items-end gap-0.5">
+                                                            <div className="text-white font-bold text-[12px]">{formatCurrency(tagihan)}</div>
+                                                            <div className="text-gray-500 text-[10px] font-semibold uppercase">{metode || '-'}</div>
+                                                        </div>
+
+                                                        {/* 5. BRG (HRG) */}
+                                                        <div className="flex flex-col items-end gap-1">
+                                                            <div className="text-[#34d399] font-bold text-[12px]">{formatCurrency(hBarang)}</div>
+                                                        </div>
+
+                                                        {/* 6. ONGKIR (DSR+TMB) */}
+                                                        <div className="flex flex-col items-end gap-0.5">
+                                                            <div className="text-[#f87171] font-bold text-[11px]">{formatCurrency(oDasar)}</div>
+                                                            <div className="text-[#fb923c] font-bold text-[10px]">+{formatCurrency(oTambahan)}</div>
+                                                        </div>
+
+                                                        {/* 7. BUKTI */}
+                                                        <div className="flex justify-center">
+                                                            {resolvedUrlFoto ? (
+                                                                <img src={resolvedUrlFoto} className="w-9 h-9 rounded border border-gray-600 object-cover cursor-pointer hover:opacity-80 transition-opacity" onClick={(e) => { e.stopPropagation(); setSelectedImage(resolvedUrlFoto); }} />
+                                                            ) : (
+                                                                <div className="w-9 h-9 rounded bg-[#1e2336] border border-gray-600 flex items-center justify-center cursor-pointer hover:bg-gray-700 transition-colors" onClick={(e) => { e.stopPropagation(); setSelectedImage('https://via.placeholder.com/400x500/1e2336/9ca3af.png?text=Foto+Belum+Tersedia'); }}>
+                                                                    <i className="fas fa-image text-gray-500 text-[11px]"></i>
                                                                 </div>
-                                                                <span className="font-bold text-white text-[13px] uppercase tracking-wide truncate">{group.customerName}</span>
-                                                                <span className="bg-[#2a3147] text-gray-300 text-[9px] px-2 py-0.5 rounded shadow-inner whitespace-nowrap">{group.packages.length} Pkt</span>
-                                                            </div>
-                                                            
-                                                            {/* DETAIL MINI DI BAWAH NAMA CUSTOMER (Resi, FOTO PAKET CHIP, Lacak) */}
-                                                            <div className="pl-7 mt-1.5 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
-                                                                {group.packages.map((pkg, pIdx) => {
-                                                                    const isPkgMapShown = showMapIds.includes(pkg.packageId);
-                                                                    const isSukses = String(pkg.status).toLowerCase() === 'sukses';
-                                                                    const isProses = ['siap_antar', 'proses'].includes(String(pkg.status).toLowerCase().replace(' ', '_'));
-                                                                    
-                                                                    const resolvedUrlFoto = getFotoUrl(pkg);
-                                                                    
-                                                                    return (
-                                                                        <div key={pIdx} className="inline-flex items-center gap-1.5 bg-[#151928] hover:bg-[#2a3147] border border-[#2a3147] text-gray-300 pr-2 pl-1 py-1 rounded-full text-[10px] md:text-[11px] font-mono transition-all shadow-sm">
-                                                                            {/* Tampilan Foto Langsung (Thumbnail Bulat) */}
-                                                                            {resolvedUrlFoto ? (
-                                                                                <img 
-                                                                                    src={resolvedUrlFoto} 
-                                                                                    alt="Paket" 
-                                                                                    className="w-6 h-6 md:w-7 md:h-7 rounded-full object-cover border border-[#374151] cursor-pointer hover:opacity-80 shrink-0" 
-                                                                                    onClick={(e) => { e.stopPropagation(); setSelectedImage(resolvedUrlFoto); }}
-                                                                                    title="Lihat Foto Bukti"
-                                                                                />
-                                                                            ) : (
-                                                                                <div 
-                                                                                    className="w-6 h-6 md:w-7 md:h-7 rounded-full bg-[#1e2336] border border-[#2a3147] flex items-center justify-center shrink-0 cursor-pointer hover:bg-gray-600"
-                                                                                    onClick={(e) => { e.stopPropagation(); setSelectedImage('https://via.placeholder.com/400x500/1e2336/9ca3af.png?text=Foto+Belum+Tersedia'); }}
-                                                                                    title="Foto belum tersedia"
-                                                                                >
-                                                                                    <i className="fas fa-box text-[8px] md:text-[10px] text-gray-500"></i>
-                                                                                </div>
-                                                                            )}
-                                                                            
-                                                                            <span className="font-semibold tracking-wide ml-0.5">{pkg.packageId}</span>
-                                                                            
-                                                                            {/* Tombol Lacak Cepat */}
-                                                                            {(isSukses || isProses) && (
-                                                                                <button 
-                                                                                    onClick={(e) => { e.stopPropagation(); toggleMap(pkg.packageId); }}
-                                                                                    className={`ml-0.5 w-5 h-5 md:w-6 md:h-6 rounded-full flex items-center justify-center text-[8px] md:text-[10px] transition-colors ${isPkgMapShown ? 'bg-red-500/20 text-red-400 hover:bg-red-500/35' : 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/35'}`}
-                                                                                    title="Lacak & Detail Paket"
-                                                                                >
-                                                                                    <i className={`fas ${isPkgMapShown ? 'fa-times' : 'fa-location-arrow'}`}></i>
-                                                                                </button>
-                                                                            )}
-                                                                        </div>
-                                                                    );
-                                                                })}
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Kolom 2: Status PKT */}
-                                                        <div className="flex justify-center gap-2">
-                                                            <div className="flex flex-col items-center">
-                                                                <div className="bg-[#153a2b] text-[#34d399] px-2 py-0.5 rounded text-[11px] font-bold border border-[#1d4f3b] flex items-center shadow-sm"><i className="fas fa-check-circle mr-1"></i>{group.s_sukses}</div>
-                                                                <span className="text-[7px] text-gray-400 mt-1 uppercase font-semibold tracking-wide">Sukses</span>
-                                                            </div>
-                                                            <div className="flex flex-col items-center">
-                                                                <div className="bg-[#1e3a8a] text-[#60a5fa] px-2 py-0.5 rounded text-[11px] font-bold border border-[#1e40af] flex items-center shadow-sm"><i className="fas fa-truck mr-1"></i>{group.s_proses}</div>
-                                                                <span className="text-[7px] text-gray-400 mt-1 uppercase font-semibold tracking-wide">Proses</span>
-                                                            </div>
-                                                            <div className="flex flex-col items-center">
-                                                                <div className="bg-[#431407] text-[#fb923c] px-2 py-0.5 rounded text-[11px] font-bold border border-[#7c2d12] flex items-center shadow-sm"><i className="fas fa-clock mr-1"></i>{group.s_pending}</div>
-                                                                <span className="text-[7px] text-gray-400 mt-1 uppercase font-semibold tracking-wide">Pending</span>
-                                                            </div>
-                                                            <div className="flex flex-col items-center">
-                                                                <div className="bg-[#450a0a] text-[#f87171] px-2 py-0.5 rounded text-[11px] font-bold border border-[#7f1d1d] flex items-center shadow-sm"><i className="fas fa-times-circle mr-1"></i>{group.s_cancel}</div>
-                                                                <span className="text-[7px] text-gray-400 mt-1 uppercase font-semibold tracking-wide">Cancel</span>
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Kolom 3: Barang Cair */}
-                                                        <div className="flex justify-center text-[13px] font-black text-[#34d399]">
-                                                            {group.uangBarang > 0 ? '+' : ''}{formatCurrency(group.uangBarang)}
-                                                        </div>
-
-                                                        {/* Kolom 4: Ongkir Dasar */}
-                                                        <div className="flex justify-center text-[13px] font-black text-[#f87171]">
-                                                            {group.ongkirDasar > 0 ? '-' : ''}{formatCurrency(group.ongkirDasar)}
-                                                        </div>
-
-                                                        {/* Kolom 5: Ongkir Tamb */}
-                                                        <div className="flex justify-center text-[13px] font-black text-[#fb923c]">
-                                                            {group.ongkirTambahan > 0 ? '-' : ''}{formatCurrency(group.ongkirTambahan)}
-                                                        </div>
-
-                                                        {/* Kolom 6: Total Bersih */}
-                                                        <div className="flex justify-end pr-2 text-[14px] font-black text-[#fb923c]">
-                                                            {formatCurrency(group.totalBersih)}
+                                                            )}
                                                         </div>
                                                     </div>
 
-                                                    {/* DISPLAY DIRECT TIMELINE & MAP JIKA DIKLIK DARI CHIP MINI (Saat Accordion Tertutup) */}
-                                                    {group.packages.some(p => showMapIds.includes(p.packageId)) && !isGroupExpanded && (
-                                                        <div className="px-4 pb-4" onClick={(e) => e.stopPropagation()}>
-                                                            {group.packages.map((pkg) => {
-                                                                if (!showMapIds.includes(pkg.packageId)) return null;
-
-                                                                // PARSING TANGGAL & KURIR UNTUK TIMELINE
-                                                                let displayKurir = String(pkg.kurirId || '');
-                                                                let displayTglFull = String(pkg.dateString || pkg.tanggal || '-');
-                                                                let displayInputTglFull = String(pkg.tanggalInput || pkg.tanggal || '-');
-
-                                                                if (displayKurir.includes('T') && displayKurir.length > 10 && /\d/.test(displayKurir)) {
-                                                                    let tempDate = displayKurir; displayKurir = displayTglFull; displayTglFull = tempDate;
-                                                                }
-                                                                if (!displayKurir || displayKurir === '' || displayKurir === 'undefined') displayKurir = '-';
-                                                                else if (displayKurir.includes('@')) displayKurir = displayKurir.split('@')[0];
-
-                                                                const parseWaktu = (tglStr) => {
-                                                                    if (tglStr === '-') return '-';
-                                                                    try {
-                                                                        const raw = new Date(tglStr);
-                                                                        if(!isNaN(raw.getTime())) {
-                                                                            const tgl = raw.toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'});
-                                                                            const hasTime = tglStr.includes(':') || tglStr.includes(' ') || (tglStr.includes('T') && !tglStr.endsWith('T00:00:00') && !tglStr.endsWith('T00:00:00.000Z') && !tglStr.endsWith('00:00:00'));
-                                                                            if (hasTime && (raw.getHours() !== 0 || raw.getMinutes() !== 0)) {
-                                                                                return tgl + " - " + raw.toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'}) + " WIT";
-                                                                            }
-                                                                            return tgl;
-                                                                        }
-                                                                    } catch(e) {}
-                                                                    return tglStr.includes('T') ? tglStr.split('T')[0] : tglStr;
-                                                                };
-                                                                
-                                                                displayTglFull = parseWaktu(displayTglFull);
-                                                                displayInputTglFull = parseWaktu(displayInputTglFull);
-                                                                
-                                                                const isSukses = String(pkg.status).toLowerCase() === 'sukses';
-
-                                                                return (
-                                                                    <div key={`map-container-${pkg.packageId}`} className="mb-4 bg-[#151928] p-3 rounded-xl border border-[#2a3147] animate-fade-in-down">
-                                                                        <div className="text-[10px] text-gray-300 font-mono mb-2 bg-[#1e2336] inline-block px-2 py-1 rounded shadow-inner border border-[#2a3147]">Resi: {pkg.packageId}</div>
-                                                                        
-                                                                        <div className="flex flex-wrap gap-x-2 gap-y-1.5 mb-3">
-                                                                            {pkg.customerPhone && <div className="text-[10px] md:text-[11px] text-gray-300 bg-[#1e2336] border border-[#2a3147] px-2 py-1 rounded-md flex items-center shadow-sm"><i className="fas fa-phone text-[#e65c00] mr-1.5"></i> {pkg.customerPhone}</div>}
-                                                                            <div className="text-[10px] md:text-[11px] text-gray-300 bg-[#1e2336] border border-[#2a3147] px-2 py-1 rounded-md flex items-center shadow-sm"><i className="fas fa-truck text-[#e65c00] mr-1.5"></i> <span className="font-medium">{displayKurir}</span></div>
-                                                                        </div>
-
-                                                                        {/* TIMELINE DALAM MODE GELAP */}
-                                                                        <div className="bg-[#1e2336] p-3 rounded-xl border border-[#2a3147] shadow-sm text-[10px] md:text-xs">
-                                                                            <h5 className="font-bold text-[#e65c00] uppercase mb-2 text-[9px] tracking-wider"><i className="fas fa-history mr-1.5"></i> Histori Perjalanan Paket</h5>
-                                                                            <div className="space-y-3 relative border-l border-[#374151] ml-2.5 pl-4">
-                                                                                <div className="relative">
-                                                                                    <div className="absolute -left-[21px] top-0.5 bg-green-500 w-2.5 h-2.5 rounded-full border-2 border-[#1e2336]"></div>
-                                                                                    <p className="font-bold text-gray-200">Paket Diterima di Gudang Exceed</p>
-                                                                                    <p className="text-gray-500 text-[9px]"><span className="font-bold text-gray-400">{displayInputTglFull}</span> - Sistem Terdaftar</p>
-                                                                                </div>
-                                                                                <div className="relative">
-                                                                                    <div className={`absolute -left-[21px] top-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#1e2336] ${pkg.status !== 'siap_antar' && pkg.status !== 'proses' ? 'bg-green-500' : 'bg-blue-500 animate-ping'}`}></div>
-                                                                                    {pkg.status === 'siap_antar' || pkg.status === 'proses' ? (
-                                                                                        <div>
-                                                                                            <p className="font-bold text-blue-400">Sedang Di Proses Antar oleh Kurir {displayKurir}</p>
-                                                                                            <p className="text-gray-500 text-[9px]">Diupdate pada: <span className="font-bold text-gray-400">{displayTglFull}</span></p>
-                                                                                        </div>
-                                                                                    ) : (
-                                                                                        <div>
-                                                                                            <p className="font-semibold text-gray-300">Diserahkan Ke Kurir ({displayKurir})</p>
-                                                                                            <p className="text-gray-500 text-[9px]">Paket berhasil disortir dan dibawa kurir</p>
-                                                                                        </div>
-                                                                                    )}
-                                                                                </div>
-                                                                                {isSukses && (
-                                                                                    <div className="relative">
-                                                                                        <div className="absolute -left-[21px] top-0.5 bg-green-500 w-2.5 h-2.5 rounded-full border-2 border-[#1e2336]"></div>
-                                                                                        <p className="font-bold text-emerald-400">Paket Sukses Diterima</p>
-                                                                                        <p className="text-gray-500 text-[9px]">Diselesaikan pada: <span className="font-bold text-gray-400">{displayTglFull}</span></p>
-                                                                                    </div>
-                                                                                )}
-                                                                                {String(pkg.status).toLowerCase() === 'cancel' && (
-                                                                                    <div className="relative">
-                                                                                        <div className="absolute -left-[21px] top-0.5 bg-red-500 w-2.5 h-2.5 rounded-full border-2 border-[#1e2336]"></div>
-                                                                                        <p className="font-bold text-red-400">Paket Batal / Cancel</p>
-                                                                                        <p className="text-gray-500 text-[9px]">Diupdate pada: <span className="font-bold text-gray-400">{displayTglFull}</span></p>
-                                                                                    </div>
-                                                                                )}
-                                                                                {String(pkg.status).toLowerCase() === 'pending' && (
-                                                                                    <div className="relative">
-                                                                                        <div className="absolute -left-[21px] top-0.5 bg-orange-500 w-2.5 h-2.5 rounded-full border-2 border-[#1e2336] animate-pulse"></div>
-                                                                                        <p className="font-bold text-orange-400">Paket Pending / Tertunda</p>
-                                                                                        <p className="text-gray-500 text-[9px]">Diupdate pada: <span className="font-bold text-gray-400">{displayTglFull}</span></p>
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                        </div>
-
-                                                                        <TrackingMap packageId={pkg.packageId} address={pkg.address} status={pkg.status} lastSuccessId={globalLastSuccessId} />
+                                                    {/* DETAIL INFORMASI & MAP (DIBUKA SAAT DIKLIK) */}
+                                                    {isMapShown && (
+                                                        <div className="bg-[#151928] p-4 border-t-2 border-[#1e2336] shadow-inner flex flex-col lg:flex-row gap-5 cursor-default" onClick={(e) => e.stopPropagation()}>
+                                                            
+                                                            {/* Kolom Histori Perjalanan */}
+                                                            <div className="flex-1 bg-[#1e2336] p-4 rounded-xl border border-[#2a3147] shadow-sm">
+                                                                <h5 className="font-bold text-[#e65c00] uppercase mb-4 text-[10px] tracking-wider"><i className="fas fa-history mr-1.5"></i> Histori Perjalanan Paket</h5>
+                                                                <div className="space-y-4 relative border-l border-[#374151] ml-2.5 pl-5">
+                                                                    <div className="relative">
+                                                                        <div className="absolute -left-[26px] top-0.5 bg-green-500 w-3 h-3 rounded-full border-2 border-[#1e2336]"></div>
+                                                                        <p className="font-bold text-gray-200 text-xs">Paket Diterima di Gudang Exceed</p>
+                                                                        <p className="text-gray-500 text-[10px] mt-0.5"><span className="font-bold text-gray-400">{displayInputTglFull}</span> - Sistem Terdaftar</p>
                                                                     </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    )}
-
-                                                    {/* DAFTAR RESI DIDALAM CUSTOMER (Saat Accordion Dibuka Penuh) */}
-                                                    {isGroupExpanded && (
-                                                        <div className="bg-[#151928] p-3 border-t-2 border-[#1e2336] flex flex-col gap-2.5 shadow-inner">
-                                                            {group.packages.map((pkg, pIdx) => {
-                                                                const hBarang = Number(pkg.hargaPaket) || 0;
-                                                                const tagihan = Number(pkg.totalTagihan) || 0;
-                                                                const metode = String(pkg.metodeBayar).trim().toUpperCase();
-                                                                
-                                                                const oDasar = Number(pkg.ongkirDasar) || Number(pkg.ongkirReal) || Number(pkg.ongkir) || (tagihan - hBarang > 0 ? (tagihan - hBarang) : 0);
-                                                                const oTambahan = Number(pkg.ongkirTambahan) || Number(pkg.ongkir_tambahan) || Number(pkg.ongkirVolume) || Number(pkg.ongkir_volume) || Number(pkg.ongkirVol) || Number(pkg.tambahan) || 0;
-                                                                
-                                                                const isSukses = String(pkg.status).toLowerCase() === 'sukses';
-                                                                const isProses = ['siap_antar', 'proses'].includes(String(pkg.status).toLowerCase().replace(' ', '_'));
-
-                                                                let totalValue = hBarang - oDasar - oTambahan;
-
-                                                                // PARSING TANGGAL & KURIR UNTUK TIMELINE
-                                                                let displayKurir = String(pkg.kurirId || '');
-                                                                let displayTglFull = String(pkg.dateString || pkg.tanggal || '-');
-                                                                let displayInputTglFull = String(pkg.tanggalInput || pkg.tanggal || '-');
-
-                                                                if (displayKurir.includes('T') && displayKurir.length > 10 && /\d/.test(displayKurir)) {
-                                                                    let tempDate = displayKurir; displayKurir = displayTglFull; displayTglFull = tempDate;
-                                                                }
-                                                                if (!displayKurir || displayKurir === '' || displayKurir === 'undefined') displayKurir = '-';
-                                                                else if (displayKurir.includes('@')) displayKurir = displayKurir.split('@')[0];
-
-                                                                const parseWaktu = (tglStr) => {
-                                                                    if (tglStr === '-') return '-';
-                                                                    try {
-                                                                        const raw = new Date(tglStr);
-                                                                        if(!isNaN(raw.getTime())) {
-                                                                            const tgl = raw.toLocaleDateString('id-ID', {day: 'numeric', month: 'short', year: 'numeric'});
-                                                                            const hasTime = tglStr.includes(':') || tglStr.includes(' ') || (tglStr.includes('T') && !tglStr.endsWith('T00:00:00') && !tglStr.endsWith('T00:00:00.000Z') && !tglStr.endsWith('00:00:00'));
-                                                                            if (hasTime && (raw.getHours() !== 0 || raw.getMinutes() !== 0)) {
-                                                                                return tgl + " - " + raw.toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'}) + " WIT";
-                                                                            }
-                                                                            return tgl;
-                                                                        }
-                                                                    } catch(e) {}
-                                                                    return tglStr.includes('T') ? tglStr.split('T')[0] : tglStr;
-                                                                };
-                                                                
-                                                                displayTglFull = parseWaktu(displayTglFull);
-                                                                displayInputTglFull = parseWaktu(displayInputTglFull);
-
-                                                                const isMapShown = showMapIds.includes(pkg.packageId);
-                                                                const resolvedUrlFoto = getFotoUrl(pkg);
-
-                                                                return (
-                                                                    <div key={pIdx} className="flex flex-col gap-2">
-                                                                        {/* BARIS RESI SIMPLE */}
-                                                                        <div className="bg-[#1e2336] rounded-lg border border-[#2a3147] p-2 md:p-2.5 flex items-center justify-between hover:bg-[#252b41] transition-colors overflow-x-auto scrollbar-hide">
-                                                                            
-                                                                            <div className="flex items-center gap-2.5 md:gap-3 shrink-0">
-                                                                                {/* KOTAK FOTO BESAR DI SEBELAH KIRI */}
-                                                                                {resolvedUrlFoto ? (
-                                                                                    <div 
-                                                                                        className="relative w-12 h-12 md:w-14 md:h-14 rounded-lg overflow-hidden border border-[#374151] shrink-0 cursor-pointer shadow-sm group"
-                                                                                        onClick={(e) => { e.stopPropagation(); setSelectedImage(resolvedUrlFoto); }}
-                                                                                    >
-                                                                                        <img src={resolvedUrlFoto} alt="Bukti" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" loading="lazy" />
-                                                                                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                                            <i className="fas fa-search-plus text-white text-[10px]"></i>
-                                                                                        </div>
-                                                                                    </div>
-                                                                                ) : (
-                                                                                    <div 
-                                                                                        className="w-12 h-12 md:w-14 md:h-14 rounded-lg bg-[#151928] border border-dashed border-[#374151] flex flex-col items-center justify-center shrink-0 cursor-pointer text-gray-500 hover:text-gray-400 hover:bg-[#252b41] transition-colors"
-                                                                                        onClick={(e) => { e.stopPropagation(); setSelectedImage('https://via.placeholder.com/400x500/1e2336/9ca3af.png?text=Foto+Belum+Tersedia'); }}
-                                                                                        title="Foto belum tersedia"
-                                                                                    >
-                                                                                        <i className="fas fa-image text-xs md:text-sm mb-0.5"></i>
-                                                                                        <span className="text-[6px] md:text-[7px] font-bold uppercase">No Foto</span>
-                                                                                    </div>
-                                                                                )}
-
-                                                                                <div className="flex flex-col">
-                                                                                    <span className="bg-[#2a3147] text-gray-300 font-mono text-[10px] md:text-[11px] px-2 py-0.5 rounded shadow-inner tracking-wider w-max">{pkg.packageId}</span>
-                                                                                    
-                                                                                    {/* PERBAIKAN: Tanggal & KETERANGAN METODE BAYAR */}
-                                                                                    <div className="flex items-center gap-1.5 mt-1.5">
-                                                                                        <span className="text-[9px] text-gray-400 whitespace-nowrap">
-                                                                                            <i className="fas fa-calendar-alt mr-1"></i> {displayTglFull.split(' - ')[0]}
-                                                                                        </span>
-                                                                                        <span className={`text-[7px] font-bold px-1.5 py-0.5 rounded border whitespace-nowrap ${
-                                                                                            metode === 'TF OLSHOP' ? 'bg-purple-900/40 text-purple-400 border-purple-700/50' :
-                                                                                            metode === 'CASH' ? 'bg-[#153a2b] text-[#34d399] border-[#1d4f3b]' :
-                                                                                            metode === 'TF KANTOR' ? 'bg-[#1e3a8a] text-[#60a5fa] border-[#1e40af]' :
-                                                                                            'bg-[#2a3147] text-gray-400 border-gray-600'
-                                                                                        }`}>
-                                                                                            {metode || 'KOSONG'}
-                                                                                        </span>
-                                                                                    </div>
-                                                                                </div>
-
-                                                                                <div className="flex flex-col gap-1.5 ml-1 md:ml-2">
-                                                                                    <StatusBadge status={pkg.status} />
-                                                                                    
-                                                                                    {/* TOMBOL LACAK (DETAIL & MAP) */}
-                                                                                    {(isSukses || isProses) && (
-                                                                                        <button 
-                                                                                            onClick={() => toggleMap(pkg.packageId)} 
-                                                                                            className="bg-[#374151] hover:bg-[#4b5563] text-[#60a5fa] border border-gray-600 text-[8px] md:text-[9px] px-2 py-0.5 rounded flex items-center justify-center transition-all shadow-sm active:scale-95 font-bold w-full"
-                                                                                        >
-                                                                                            <i className={`fas ${isMapShown ? 'fa-times text-red-400' : 'fa-location-arrow text-blue-400'} mr-1`}></i>
-                                                                                            {isMapShown ? 'Tutup' : 'Lacak'}
-                                                                                        </button>
-                                                                                    )}
-                                                                                </div>
+                                                                    <div className="relative">
+                                                                        <div className={`absolute -left-[26px] top-0.5 w-3 h-3 rounded-full border-2 border-[#1e2336] ${pkg.status !== 'siap_antar' && pkg.status !== 'proses' ? 'bg-green-500' : 'bg-blue-500 animate-ping'}`}></div>
+                                                                        {pkg.status === 'siap_antar' || pkg.status === 'proses' ? (
+                                                                            <div>
+                                                                                <p className="font-bold text-blue-400 text-xs">Sedang Di Proses Antar oleh Kurir {displayKurir}</p>
+                                                                                <p className="text-gray-500 text-[10px] mt-0.5">Diupdate pada: <span className="font-bold text-gray-400">{displayTglFull}</span></p>
                                                                             </div>
-
-                                                                            <div className="flex items-center gap-3 md:gap-4 shrink-0 ml-3">
-                                                                                <div className="text-[10px] text-gray-400 flex flex-col items-end">
-                                                                                    <span>Brg: <span className="text-[#34d399] font-bold">+{formatCurrency(hBarang)}</span></span>
-                                                                                    <span>Ongkir: <span className="text-[#f87171] font-bold">{oDasar > 0 ? '-' : ''}{formatCurrency(oDasar)}</span></span>
-                                                                                    <span>Tamb: <span className="text-[#fb923c] font-bold">{oTambahan > 0 ? '-' : ''}{formatCurrency(oTambahan)}</span></span>
-                                                                                </div>
-                                                                                <span className="text-[13px] font-black text-[#fb923c] w-[100px] text-right">{formatCurrency(totalValue)}</span>
-                                                                            </div>
-
-                                                                        </div>
-
-                                                                        {/* AREA DETAIL (TIMELINE & MAP) JIKA DITEKAN */}
-                                                                        {isMapShown && (
-                                                                            <div className="bg-[#1e2336] p-3 rounded-xl border border-[#2a3147] animate-fade-in-down mt-1">
-                                                                                
-                                                                                <div className="flex flex-wrap gap-x-2 gap-y-1.5 mb-3">
-                                                                                    {pkg.customerPhone && <div className="text-[10px] md:text-[11px] text-gray-300 bg-[#151928] border border-[#2a3147] px-2 py-1 rounded-md flex items-center shadow-sm"><i className="fas fa-phone text-[#e65c00] mr-1.5"></i> {pkg.customerPhone}</div>}
-                                                                                    <div className="text-[10px] md:text-[11px] text-gray-300 bg-[#151928] border border-[#2a3147] px-2 py-1 rounded-md flex items-center shadow-sm"><i className="fas fa-truck text-[#e65c00] mr-1.5"></i> <span className="font-medium">{displayKurir}</span></div>
-                                                                                </div>
-
-                                                                                {/* TIMELINE DALAM MODE GELAP */}
-                                                                                <div className="bg-[#151928] p-3 rounded-xl border border-[#2a3147] shadow-sm text-[10px] md:text-xs">
-                                                                                    <h5 className="font-bold text-[#e65c00] uppercase mb-2 text-[9px] tracking-wider"><i className="fas fa-history mr-1.5"></i> Histori Perjalanan Paket</h5>
-                                                                                    <div className="space-y-3 relative border-l border-[#374151] ml-2.5 pl-4">
-                                                                                        <div className="relative">
-                                                                                            <div className="absolute -left-[21px] top-0.5 bg-green-500 w-2.5 h-2.5 rounded-full border-2 border-[#151928]"></div>
-                                                                                            <p className="font-bold text-gray-200">Paket Diterima di Gudang Exceed</p>
-                                                                                            <p className="text-gray-500 text-[9px]"><span className="font-bold text-gray-400">{displayInputTglFull}</span> - Sistem Terdaftar</p>
-                                                                                        </div>
-                                                                                        <div className="relative">
-                                                                                            <div className={`absolute -left-[21px] top-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#151928] ${pkg.status !== 'siap_antar' && pkg.status !== 'proses' ? 'bg-green-500' : 'bg-blue-500 animate-ping'}`}></div>
-                                                                                            {pkg.status === 'siap_antar' || pkg.status === 'proses' ? (
-                                                                                                <div>
-                                                                                                    <p className="font-bold text-blue-400">Sedang Di Proses Antar oleh Kurir {displayKurir}</p>
-                                                                                                    <p className="text-gray-500 text-[9px]">Diupdate pada: <span className="font-bold text-gray-400">{displayTglFull}</span></p>
-                                                                                                </div>
-                                                                                            ) : (
-                                                                                                <div>
-                                                                                                    <p className="font-semibold text-gray-300">Diserahkan Ke Kurir ({displayKurir})</p>
-                                                                                                    <p className="text-gray-500 text-[9px]">Paket berhasil disortir dan dibawa kurir</p>
-                                                                                                </div>
-                                                                                            )}
-                                                                                        </div>
-                                                                                        {isSukses && (
-                                                                                            <div className="relative">
-                                                                                                <div className="absolute -left-[21px] top-0.5 bg-green-500 w-2.5 h-2.5 rounded-full border-2 border-[#151928]"></div>
-                                                                                                <p className="font-bold text-emerald-400">Paket Sukses Diterima</p>
-                                                                                                <p className="text-gray-500 text-[9px]">Diselesaikan pada: <span className="font-bold text-gray-400">{displayTglFull}</span></p>
-                                                                                            </div>
-                                                                                        )}
-                                                                                        {String(pkg.status).toLowerCase() === 'cancel' && (
-                                                                                            <div className="relative">
-                                                                                                <div className="absolute -left-[21px] top-0.5 bg-red-500 w-2.5 h-2.5 rounded-full border-2 border-[#151928]"></div>
-                                                                                                <p className="font-bold text-red-400">Paket Batal / Cancel</p>
-                                                                                                <p className="text-gray-500 text-[9px]">Diupdate pada: <span className="font-bold text-gray-400">{displayTglFull}</span></p>
-                                                                                            </div>
-                                                                                        )}
-                                                                                        {String(pkg.status).toLowerCase() === 'pending' && (
-                                                                                            <div className="relative">
-                                                                                                <div className="absolute -left-[21px] top-0.5 bg-orange-500 w-2.5 h-2.5 rounded-full border-2 border-[#151928] animate-pulse"></div>
-                                                                                                <p className="font-bold text-orange-400">Paket Pending / Tertunda</p>
-                                                                                                <p className="text-gray-500 text-[9px]">Diupdate pada: <span className="font-bold text-gray-400">{displayTglFull}</span></p>
-                                                                                            </div>
-                                                                                        )}
-                                                                                    </div>
-                                                                                </div>
-
-                                                                                <TrackingMap packageId={pkg.packageId} address={pkg.address} status={pkg.status} lastSuccessId={globalLastSuccessId} />
+                                                                        ) : (
+                                                                            <div>
+                                                                                <p className="font-semibold text-gray-300 text-xs">Diserahkan Ke Kurir ({displayKurir})</p>
+                                                                                <p className="text-gray-500 text-[10px] mt-0.5">Paket berhasil disortir dan dibawa kurir</p>
                                                                             </div>
                                                                         )}
                                                                     </div>
-                                                                );
-                                                            })}
+                                                                    {isSukses && (
+                                                                        <div className="relative">
+                                                                            <div className="absolute -left-[26px] top-0.5 bg-green-500 w-3 h-3 rounded-full border-2 border-[#1e2336]"></div>
+                                                                            <p className="font-bold text-emerald-400 text-xs">Paket Sukses Diterima</p>
+                                                                            <p className="text-gray-500 text-[10px] mt-0.5">Diselesaikan pada: <span className="font-bold text-gray-400">{displayTglFull}</span></p>
+                                                                        </div>
+                                                                    )}
+                                                                    {String(pkg.status).toLowerCase() === 'cancel' && (
+                                                                        <div className="relative">
+                                                                            <div className="absolute -left-[26px] top-0.5 bg-red-500 w-3 h-3 rounded-full border-2 border-[#1e2336]"></div>
+                                                                            <p className="font-bold text-red-400 text-xs">Paket Batal / Cancel</p>
+                                                                            <p className="text-gray-500 text-[10px] mt-0.5">Diupdate pada: <span className="font-bold text-gray-400">{displayTglFull}</span></p>
+                                                                        </div>
+                                                                    )}
+                                                                    {String(pkg.status).toLowerCase() === 'pending' && (
+                                                                        <div className="relative">
+                                                                            <div className="absolute -left-[26px] top-0.5 bg-orange-500 w-3 h-3 rounded-full border-2 border-[#1e2336] animate-pulse"></div>
+                                                                            <p className="font-bold text-orange-400 text-xs">Paket Pending / Tertunda</p>
+                                                                            <p className="text-gray-500 text-[10px] mt-0.5">Diupdate pada: <span className="font-bold text-gray-400">{displayTglFull}</span></p>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            
+                                                            {/* Kolom Peta (Tracking Map) */}
+                                                            <div className="flex-1">
+                                                                <TrackingMap packageId={pkg.packageId} address={pkg.address} status={pkg.status} lastSuccessId={globalLastSuccessId} />
+                                                            </div>
                                                         </div>
                                                     )}
                                                 </div>
@@ -1003,7 +738,6 @@
                         <div className="text-center pt-2 pb-2"><p className="text-[9px] md:text-[10px] text-gray-400 font-medium">Exceed Express Logistics &copy; 2026</p></div>
                     </div>
 
-                    {/* MODAL FOTO MEMBESAR */}
                     {selectedImage && (
                         <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 transition-opacity" onClick={() => setSelectedImage(null)}>
                             <div className="relative w-full max-w-md flex flex-col items-center transform transition-all scale-100" onClick={(e) => e.stopPropagation()}>
