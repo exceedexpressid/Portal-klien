@@ -352,7 +352,7 @@
                 }
 
                 // Ongkir Tambahan (MURNI DATABASE! JIKA SPREADSHEET 0 = TETAP 0)
-                let oTambahan = getVal(['ongkirTambahan', 'ongkir_tambahan', 'ongkirVolume', 'ongkir_volume', 'ongkirVol', 'tambahan', 'ongkirTambahanReal']);
+                let oTambahan = getVal(['ongkirTambahan', 'Tambahan Ongkir', 'ongkirVolume', 'ongkir_volume', 'ongkirVol', 'tambahan', 'ongkirTambahanReal']);
                 if (oTambahan === null) {
                     oTambahan = 0; 
                 }
@@ -407,7 +407,8 @@
             // ===============================================
             const hitungRingkasanTabel = () => {
                 let s_sukses = 0, s_proses = 0, s_pending = 0, s_cancel = 0;
-                let uangBarang = 0, ongkirDasar = 0, ongkirTambahan = 0, totalBebanOngkirOlshop = 0, totalBersih = 0;
+                let uangCASH = 0, uangTFOlshop = 0, uangTFKantor = 0;
+                let minusOngkir = 0, ongkirTambahan = 0;
 
                 filteredPkgs.forEach(p => {
                     let stat = String(p.status).toLowerCase().replace(' ', '_');
@@ -422,19 +423,21 @@
                         // Tarik nilai murni
                         const { hBarang, oDasar, oTambahan } = parseKeuanganPkg(p);
 
-                        ongkirDasar += oDasar;
                         ongkirTambahan += oTambahan;
 
-                        if (metode === 'CASH' || metode === 'TF KANTOR' || metode === 'COD') {
-                            uangBarang += hBarang;
+                        if (metode === 'CASH' || metode === 'COD') {
+                            uangCASH += hBarang;
+                        } else if (metode === 'TF KANTOR') {
+                            uangTFKantor += hBarang;
                         } else if (metode === 'TF OLSHOP') {
-                            // ONGKIR TAMBAHAN TIDAK MEMOTONG SETORAN
-                            totalBebanOngkirOlshop += oDasar;
+                            uangTFOlshop += hBarang;
+                            // ONGKIR DASAR memotong setoran dari TF OLSHOP
+                            minusOngkir += oDasar; 
                         }
                     }
                 });
-                totalBersih = uangBarang - totalBebanOngkirOlshop;
-                return { s_sukses, s_proses, s_pending, s_cancel, uangBarang, ongkirDasar, ongkirTambahan, totalBersih, totalBebanOngkirOlshop };
+                const totalSetoran = uangCASH + uangTFKantor - minusOngkir;
+                return { s_sukses, s_proses, s_pending, s_cancel, uangCASH, uangTFOlshop, uangTFKantor, minusOngkir, ongkirTambahan, totalSetoran };
             };
 
             const ringkasan = hitungRingkasanTabel();
@@ -513,46 +516,62 @@
                         </div>
 
                         {/* ========================================================= */}
-                        {/* UI SUMMARY GLOBAL */}
+                        {/* REKAPITULASI SETORAN KE OLSHOP (MENIRU DESAIN KURIR) */}
                         {/* ========================================================= */}
-                        <div className="bg-[#1e2336] rounded-xl overflow-hidden shadow-lg border border-[#2a3147] text-white font-sans">
-                            <div className="grid grid-cols-2 md:grid-cols-5 gap-y-4 gap-x-2 p-3 md:p-4 items-center text-center md:text-left divide-y md:divide-y-0 md:divide-x divide-[#2a3147]">
-                                <div className="col-span-2 md:col-span-1 flex flex-col justify-center items-center pb-2 md:pb-0">
-                                    <div className="text-[9px] md:text-[10px] text-gray-400 font-bold mb-2 uppercase tracking-widest">TOTAL STATUS PKT</div>
-                                    <div className="flex gap-1.5">
-                                        <div className="flex flex-col items-center">
-                                            <span className="bg-[#153a2b] text-[#34d399] px-2 py-0.5 rounded text-xs font-bold border border-[#1d4f3b]"><i className="fas fa-check-circle mr-1"></i>{ringkasan.s_sukses}</span>
-                                            <span className="text-[7px] text-gray-400 mt-1 uppercase font-semibold tracking-wide">Sukses</span>
-                                        </div>
-                                        <div className="flex flex-col items-center">
-                                            <span className="bg-[#1e3a8a] text-[#60a5fa] px-2 py-0.5 rounded text-xs font-bold border border-[#1e40af]"><i className="fas fa-truck mr-1"></i>{ringkasan.s_proses}</span>
-                                            <span className="text-[7px] text-gray-400 mt-1 uppercase font-semibold tracking-wide">Proses</span>
-                                        </div>
-                                        <div className="flex flex-col items-center">
-                                            <span className="bg-[#431407] text-[#fb923c] px-2 py-0.5 rounded text-xs font-bold border border-[#7c2d12]"><i className="fas fa-clock mr-1"></i>{ringkasan.s_pending}</span>
-                                            <span className="text-[7px] text-gray-400 mt-1 uppercase font-semibold tracking-wide">Pending</span>
-                                        </div>
-                                        <div className="flex flex-col items-center">
-                                            <span className="bg-[#450a0a] text-[#f87171] px-2 py-0.5 rounded text-xs font-bold border border-[#7f1d1d]"><i className="fas fa-times-circle mr-1"></i>{ringkasan.s_cancel}</span>
-                                            <span className="text-[7px] text-gray-400 mt-1 uppercase font-semibold tracking-wide">Cancel</span>
-                                        </div>
+                        <div className="mt-2 flex flex-col">
+                            <div className="px-1 md:px-2 pb-2 flex justify-between items-end border-gray-300 mb-1">
+                                <h3 className="font-black text-gray-700 text-sm md:text-lg"><i className="fas fa-file-invoice-dollar text-[#e65c00] mr-2"></i>Rekapitulasi Setoran ke Olshop</h3>
+                            </div>
+                            
+                            <div className="overflow-x-auto w-full bg-[#1e2336] rounded-xl border border-[#2a3147] shadow-lg scrollbar-hide">
+                                <div className="min-w-[1000px] flex flex-col font-sans">
+                                    {/* HEADER */}
+                                    <div className="grid grid-cols-[180px_180px_1fr_1fr_1fr_1fr_1fr_120px] gap-3 px-4 py-3 text-[9px] font-bold uppercase tracking-widest border-b border-[#2a3147] items-center bg-[#151928]">
+                                        <div className="text-gray-400">NAMA OLSHOP</div>
+                                        <div className="text-gray-400 text-center">STATUS</div>
+                                        <div className="text-[#34d399] text-right">CASH / HARGA</div>
+                                        <div className="text-[#60a5fa] text-right">TF OLSHOP</div>
+                                        <div className="text-[#c084fc] text-right">TF KANTOR</div>
+                                        <div className="text-[#f87171] text-right">MINUS ONGKIR</div>
+                                        <div className="text-[#fb923c] text-right">ONGKIR TAMBAHAN</div>
+                                        <div className="text-white text-right">TOTAL SETORAN</div>
                                     </div>
-                                </div>
-                                <div className="flex flex-col md:items-center pt-2 md:pt-0">
-                                    <div className="text-[9px] md:text-[10px] text-[#34d399] font-bold mb-1 uppercase tracking-widest">BARANG (CASH/TF KTR)</div>
-                                    <div className="text-sm md:text-base font-black text-[#34d399]">+{formatCurrency(ringkasan.uangBarang)}</div>
-                                </div>
-                                <div className="flex flex-col md:items-center pt-2 md:pt-0">
-                                    <div className="text-[9px] md:text-[10px] text-[#f87171] font-bold mb-1 uppercase tracking-widest">BEBAN ONGKIR (TF OLSHOP)</div>
-                                    <div className="text-sm md:text-base font-black text-[#f87171]">{ringkasan.totalBebanOngkirOlshop > 0 ? '-' : ''}{formatCurrency(ringkasan.totalBebanOngkirOlshop)}</div>
-                                </div>
-                                <div className="flex flex-col md:items-center pt-2 md:pt-0">
-                                    <div className="text-[9px] md:text-[10px] text-[#fb923c] font-bold mb-1 uppercase tracking-widest">ONGKIR TAMBAHAN</div>
-                                    <div className="text-sm md:text-base font-black text-[#fb923c]">+{formatCurrency(ringkasan.ongkirTambahan)}</div>
-                                </div>
-                                <div className="flex flex-col md:items-center pt-2 md:pt-0 bg-[#252b41] md:bg-transparent -mx-3 md:mx-0 px-3 md:px-0 pb-1 rounded col-span-2 md:col-span-1">
-                                    <div className="text-[9px] md:text-[10px] text-white font-bold mb-1 uppercase tracking-widest">TOTAL BERSIH</div>
-                                    <div className="text-base md:text-lg font-black text-[#34d399]">{formatCurrency(ringkasan.totalBersih)}</div>
+
+                                    {/* ROW DATA */}
+                                    <div className="grid grid-cols-[180px_180px_1fr_1fr_1fr_1fr_1fr_120px] gap-3 px-4 py-3.5 items-center hover:bg-[#252b41] transition-colors">
+                                        <div className="flex items-center gap-2">
+                                            <i className="fas fa-store text-gray-500"></i>
+                                            <span className="font-black text-white text-[12px] uppercase tracking-wide truncate">{userProfile.name}</span>
+                                        </div>
+
+                                        {/* STATUS BADGES (SEPERTI GAMBAR) */}
+                                        <div className="flex justify-center gap-1.5">
+                                            <div className="flex flex-col items-center">
+                                                <span className="bg-[#064e3b] text-[#34d399] px-2 py-0.5 rounded-md text-[11px] font-bold flex items-center gap-1 shadow-sm"><i className="fas fa-check-circle"></i> {ringkasan.s_sukses}</span>
+                                                <span className="text-[7px] text-gray-400 mt-1 uppercase font-semibold">Sukses</span>
+                                            </div>
+                                            <div className="flex flex-col items-center">
+                                                <span className="bg-[#1e3a8a] text-[#60a5fa] px-2 py-0.5 rounded-md text-[11px] font-bold flex items-center gap-1 shadow-sm"><i className="fas fa-truck"></i> {ringkasan.s_proses}</span>
+                                                <span className="text-[7px] text-gray-400 mt-1 uppercase font-semibold">Proses</span>
+                                            </div>
+                                            <div className="flex flex-col items-center">
+                                                <span className="bg-[#7c2d12] text-[#fb923c] px-2 py-0.5 rounded-md text-[11px] font-bold flex items-center gap-1 shadow-sm"><i className="fas fa-clock"></i> {ringkasan.s_pending}</span>
+                                                <span className="text-[7px] text-gray-400 mt-1 uppercase font-semibold">Pending</span>
+                                            </div>
+                                            <div className="flex flex-col items-center">
+                                                <span className="bg-[#7f1d1d] text-[#f87171] px-2 py-0.5 rounded-md text-[11px] font-bold flex items-center gap-1 shadow-sm"><i className="fas fa-times-circle"></i> {ringkasan.s_cancel}</span>
+                                                <span className="text-[7px] text-gray-400 mt-1 uppercase font-semibold">Cancel</span>
+                                            </div>
+                                        </div>
+
+                                        {/* KEUANGAN */}
+                                        <div className="text-[#34d399] font-black text-[13px] text-right">{ringkasan.uangCASH > 0 ? '+' : ''}{formatCurrency(ringkasan.uangCASH)}</div>
+                                        <div className="text-[#60a5fa] font-black text-[13px] text-right">{ringkasan.uangTFOlshop === 0 ? 'Rp 0' : formatCurrency(ringkasan.uangTFOlshop)}</div>
+                                        <div className="text-[#c084fc] font-black text-[13px] text-right">{ringkasan.uangTFKantor === 0 ? 'Rp 0' : formatCurrency(ringkasan.uangTFKantor)}</div>
+                                        <div className="text-[#f87171] font-black text-[13px] text-right">{ringkasan.minusOngkir > 0 ? '-' : ''}{ringkasan.minusOngkir === 0 ? 'Rp 0' : formatCurrency(ringkasan.minusOngkir)}</div>
+                                        <div className="text-[#fb923c] font-black text-[13px] text-right">{ringkasan.ongkirTambahan === 0 ? 'Rp 0' : formatCurrency(ringkasan.ongkirTambahan)}</div>
+                                        <div className="text-[#34d399] font-black text-[14px] text-right">{formatCurrency(ringkasan.totalSetoran)}</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -560,7 +579,7 @@
                         {/* ========================================================= */}
                         {/* DAFTAR PAKET - FLAT LIST (LEBIH RAPAT) */}
                         {/* ========================================================= */}
-                        <div className="mt-6 flex flex-col">
+                        <div className="mt-4 flex flex-col">
                             <div className="px-1 md:px-2 pb-3 flex justify-between items-end border-b border-gray-300 mb-2">
                                 <h3 className="font-black text-gray-700 text-sm md:text-lg"><i className="fas fa-box text-[#e65c00] mr-2"></i>Daftar Paket</h3>
                                 <span className="text-[10px] font-bold bg-gray-200 text-gray-600 px-3 py-1 rounded-full">{filteredPkgs.length} Paket</span>
@@ -573,7 +592,6 @@
                                 </div>
                             ) : (
                                 <div className="overflow-x-auto w-full bg-[#1e2336] rounded-xl border border-[#2a3147] shadow-lg pb-2 scrollbar-hide">
-                                    {/* MIN-WIDTH DIKURANGI DARI 1250px MENJADI 900px AGAR LEBIH RAPAT */}
                                     <div className="min-w-[900px] flex flex-col font-sans">
                                         
                                         {/* HEADER TABEL */}
@@ -773,6 +791,7 @@
                                 </div>
                             )}
                         </div>
+                        
                         <div className="text-center pt-2 pb-2"><p className="text-[9px] md:text-[10px] text-gray-400 font-medium">Exceed Express Logistics &copy; 2026</p></div>
                     </div>
 
