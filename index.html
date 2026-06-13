@@ -44,7 +44,7 @@
             body { background-color: #fff; }
             .no-print { display: none !important; }
             .print-only { display: block !important; }
-            .cetak-container { box-shadow: none !important; border: none !important; margin: 0 !important; padding: 0 !important; width: 100% !important; max-width: 100% !important;}
+            .cetak-container { box-shadow: none !important; border: none !important; margin: 0 !important; padding: 0 !important; width: 100% !important; max-width: 100% !important; min-width: 0 !important;}
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
         .excel-table { width: 100%; border-collapse: collapse; font-size: 11px; }
@@ -52,33 +52,6 @@
         .excel-table th { background-color: #f3f4f6; text-align: center; font-weight: bold; }
         .box-summary { border: 1px solid #000; font-size: 12px; font-weight: bold; background-color: #fff; }
         .box-summary td { border: 1px solid #000; padding: 4px 8px; }
-
-        /* Tampilan Mobile Card (Bekerja HANYA saat dibaca di layar HP, dan mati otomatis saat diekspor) */
-        /* Mengubah max-width ke 1024px agar mencakup tablet dan mode desktop di layar kecil */
-        @media screen and (max-width: 1024px) {
-            .cetak-container:not(.force-desktop) { padding: 12px !important; }
-            .cetak-container:not(.force-desktop) .excel-table, 
-            .cetak-container:not(.force-desktop) .excel-table tbody, 
-            .cetak-container:not(.force-desktop) .excel-table tr, 
-            .cetak-container:not(.force-desktop) .excel-table td { display: block; width: 100%; }
-            .cetak-container:not(.force-desktop) .excel-table thead { display: none; }
-            .cetak-container:not(.force-desktop) .excel-table tr { margin-bottom: 16px; border: 2px solid #e5e7eb; border-radius: 8px; background-color: #fff; overflow: hidden; }
-            .cetak-container:not(.force-desktop) .excel-table td { text-align: right !important; padding: 8px 12px 8px 50% !important; position: relative; border: none !important; border-bottom: 1px solid #f3f4f6 !important; font-size: 12px; }
-            .cetak-container:not(.force-desktop) .excel-table td:last-child { border-bottom: none !important; }
-            .cetak-container:not(.force-desktop) .excel-table td::before { content: attr(data-label); position: absolute; left: 12px; width: 45%; text-align: left; font-weight: bold; color: #6b7280; white-space: nowrap; }
-            .cetak-container:not(.force-desktop) .bg-yellow-100 td { border-bottom-color: #fef08a !important; }
-            .cetak-container:not(.force-desktop) .bg-red-100 td { border-bottom-color: #fecaca !important; }
-            
-            /* Penataan Kop Surat Mobile */
-            .cetak-container:not(.force-desktop) .kop-surat { flex-direction: column !important; align-items: stretch !important; gap: 1rem !important; }
-            .cetak-container:not(.force-desktop) .kop-kiri { flex-direction: column !important; align-items: center !important; width: 100% !important; }
-            .cetak-container:not(.force-desktop) .kop-kiri > div:first-child { margin-bottom: 10px; }
-            .cetak-container:not(.force-desktop) .kop-kiri > div:nth-child(2) { width: 100%; }
-            .cetak-container:not(.force-desktop) .kop-kiri .border-black { width: 100% !important; min-width: 0 !important; font-size: 12px !important; text-align: center; justify-content: center; }
-            .cetak-container:not(.force-desktop) .kop-kanan { flex-direction: column !important; width: 100% !important; gap: 0.5rem !important; }
-            .cetak-container:not(.force-desktop) .kop-kanan table { width: 100% !important; }
-            .cetak-container:not(.force-desktop) .kop-kanan td { font-size: 11px !important; }
-        }
 
         /* Class bantuan untuk memaksa ukuran Desktop secara absolut saat proses Download PDF/JPG */
         .force-desktop {
@@ -482,9 +455,8 @@
                             scale: 2, 
                             useCORS: true, 
                             backgroundColor: '#ffffff', 
-                            windowWidth: 1150, // Sesuaikan dengan lebar desktop agar tailwind/css memahaminya sebagai PC
+                            windowWidth: 1150, 
                             onclone: (clonedDoc) => {
-                                // Memastikan elemen clone ikut dipaksa menjadi desktop
                                 const clonedEl = clonedDoc.querySelector('.cetak-container');
                                 if (clonedEl) clonedEl.classList.add('force-desktop');
                             }
@@ -526,7 +498,7 @@
                         }
                     } catch (err) { 
                         alert("Terjadi kesalahan saat memproses ekspor."); 
-                        element.classList.remove('force-desktop'); // Pastikan dihapus meski error
+                        element.classList.remove('force-desktop'); 
                     } finally { 
                         loadingEl.style.display = 'none'; 
                     }
@@ -886,10 +858,10 @@
                         {/* TAB 2: MESIN CETAK INVOICE OLSHOP */}
                         {/* ========================================================================= */}
                         {activeMenuTab === 'cetak' && (
-                            <div className="animate-fade-in-down">
-                                <div ref={printAreaRef} className="cetak-container bg-white mx-auto w-full max-w-[1150px] p-4 sm:p-8 shadow-xl border border-gray-200 flex flex-col relative overflow-hidden">
-                                    <div className="kop-surat flex justify-between items-start mb-6 gap-6">
-                                        <div className="kop-kiri flex items-center gap-4 w-auto">
+                            <div className="animate-fade-in-down overflow-x-auto w-full pb-4">
+                                <div ref={printAreaRef} className="cetak-container bg-white mx-auto w-full max-w-[1150px] min-w-[1050px] p-6 sm:p-8 shadow-xl border border-gray-200 flex flex-col relative">
+                                    <div className="flex justify-between items-start mb-6 gap-6">
+                                        <div className="flex items-center gap-4 w-auto">
                                             <div className="flex flex-col items-center">
                                                 <div className="w-[120px] shrink-0 border border-slate-200 rounded p-1 bg-slate-50 flex items-center justify-center">
                                                     <img src="https://drive.google.com/uc?id=1xBkWoexBfNOe8WKhDp8WBkh7hjvK4Yub" crossOrigin="anonymous" alt="Exceed Logo" className="w-full h-auto object-contain" onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
@@ -909,7 +881,7 @@
                                             </div>
                                         </div>
 
-                                        <div className="kop-kanan flex gap-4 w-auto">
+                                        <div className="flex gap-4 w-auto">
                                             <table className="box-summary w-[260px]">
                                                 <tbody>
                                                     <tr><td className="bg-gray-100 w-[140px]">Setoran</td><td className="text-right w-[120px]">{formatCurrency(cetakSummary.setoran)}</td></tr>
