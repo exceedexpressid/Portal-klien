@@ -54,7 +54,8 @@
         .box-summary td { border: 1px solid #000; padding: 4px 8px; }
 
         /* Tampilan Mobile Card (Bekerja HANYA saat dibaca di layar HP, dan mati otomatis saat diekspor) */
-        @media screen and (max-width: 768px) {
+        /* Mengubah max-width ke 1024px agar mencakup tablet dan mode desktop di layar kecil */
+        @media screen and (max-width: 1024px) {
             .cetak-container:not(.force-desktop) { padding: 12px !important; }
             .cetak-container:not(.force-desktop) .excel-table, 
             .cetak-container:not(.force-desktop) .excel-table tbody, 
