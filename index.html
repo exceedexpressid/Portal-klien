@@ -38,7 +38,7 @@
         @keyframes bounce-move { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-5px) rotate(2deg); } }
         .moving-truck-marker { animation: bounce-move 1s ease-in-out infinite; filter: drop-shadow(2px 4px 4px rgba(0,0,0,0.4)); }
 
-        /* KHUSUS UNTUK MESIN CETAK */
+        /* KHUSUS UNTUK MESIN CETAK (Dasar Desktop Murni) */
         @media print {
             @page { size: landscape; margin: 10mm; }
             body { background-color: #fff; }
@@ -53,9 +53,8 @@
         .box-summary { border: 1px solid #000; font-size: 12px; font-weight: bold; background-color: #fff; }
         .box-summary td { border: 1px solid #000; padding: 4px 8px; }
 
-        /* Tampilan Mobile Card (Anti-Geser) */
+        /* Tampilan Mobile Card (Bekerja HANYA saat dibaca di layar HP, dan mati otomatis saat diekspor) */
         @media screen and (max-width: 768px) {
-            /* Pastikan elemen cetak tidak terpengaruh jika dipaksa lebar saat export */
             .cetak-container:not(.force-desktop) { padding: 12px !important; }
             .cetak-container:not(.force-desktop) .excel-table, 
             .cetak-container:not(.force-desktop) .excel-table tbody, 
@@ -69,18 +68,23 @@
             .cetak-container:not(.force-desktop) .bg-yellow-100 td { border-bottom-color: #fef08a !important; }
             .cetak-container:not(.force-desktop) .bg-red-100 td { border-bottom-color: #fecaca !important; }
             
-            /* Penataan Kop Kop Surat Mobile */
+            /* Penataan Kop Surat Mobile */
             .cetak-container:not(.force-desktop) .kop-surat { flex-direction: column !important; align-items: stretch !important; gap: 1rem !important; }
-            .cetak-container:not(.force-desktop) .kop-kiri { flex-direction: column !important; align-items: center !important; }
+            .cetak-container:not(.force-desktop) .kop-kiri { flex-direction: column !important; align-items: center !important; width: 100% !important; }
+            .cetak-container:not(.force-desktop) .kop-kiri > div:first-child { margin-bottom: 10px; }
+            .cetak-container:not(.force-desktop) .kop-kiri > div:nth-child(2) { width: 100%; }
+            .cetak-container:not(.force-desktop) .kop-kiri .border-black { width: 100% !important; min-width: 0 !important; font-size: 12px !important; text-align: center; justify-content: center; }
             .cetak-container:not(.force-desktop) .kop-kanan { flex-direction: column !important; width: 100% !important; gap: 0.5rem !important; }
             .cetak-container:not(.force-desktop) .kop-kanan table { width: 100% !important; }
+            .cetak-container:not(.force-desktop) .kop-kanan td { font-size: 11px !important; }
         }
 
-        /* Class bantuan untuk memaksa ukuran Desktop saat proses Download PDF/JPG */
+        /* Class bantuan untuk memaksa ukuran Desktop secara absolut saat proses Download PDF/JPG */
         .force-desktop {
-            width: 1100px !important;
-            max-width: 1100px !important;
+            width: 1150px !important;
+            max-width: 1150px !important;
             padding: 32px !important;
+            background-color: white !important;
         }
 
         #export-loading {
@@ -93,7 +97,7 @@
     <div id="export-loading">
         <i class="fas fa-circle-notch fa-spin text-4xl text-[#e65c00] mb-4"></i>
         <h2 class="text-xl font-bold text-slate-800 text-center px-4">Mempersiapkan Dokumen...</h2>
-        <p class="text-slate-500 text-sm mt-2 text-center px-4">Harap tunggu, merekam data nota.</p>
+        <p class="text-slate-500 text-sm mt-2 text-center px-4">Harap tunggu, merekam data nota kualitas tinggi.</p>
     </div>
 
     <div id="root"></div>
@@ -468,7 +472,7 @@
                 const currentScrollY = window.scrollY;
                 window.scrollTo(0, 0);
 
-                // 2. PAKSA elemen menjadi format Desktop lebar (1100px) sebelum dipotret
+                // 2. PAKSA elemen menjadi format Desktop lebar secara absolut
                 element.classList.add('force-desktop');
 
                 setTimeout(async () => {
@@ -477,8 +481,12 @@
                             scale: 2, 
                             useCORS: true, 
                             backgroundColor: '#ffffff', 
-                            windowWidth: 1100, // Beritahu html2canvas bahwa layarnya selebar 1100px
-                            // windowHeight tidak dibatasi agar tabel terpotret penuh ke bawah
+                            windowWidth: 1150, // Sesuaikan dengan lebar desktop agar tailwind/css memahaminya sebagai PC
+                            onclone: (clonedDoc) => {
+                                // Memastikan elemen clone ikut dipaksa menjadi desktop
+                                const clonedEl = clonedDoc.querySelector('.cetak-container');
+                                if (clonedEl) clonedEl.classList.add('force-desktop');
+                            }
                         });
                         
                         // 3. Kembalikan ke tampilan awal setelah dipotret
@@ -878,42 +886,42 @@
                         {/* ========================================================================= */}
                         {activeMenuTab === 'cetak' && (
                             <div className="animate-fade-in-down">
-                                <div ref={printAreaRef} className="cetak-container bg-white mx-auto w-full max-w-[1100px] p-4 sm:p-8 shadow-xl border border-gray-200 flex flex-col relative overflow-hidden">
-                                    <div className="kop-surat flex flex-col lg:flex-row justify-between items-start mb-6 gap-6">
-                                        <div className="kop-kiri flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full lg:w-auto">
+                                <div ref={printAreaRef} className="cetak-container bg-white mx-auto w-full max-w-[1150px] p-4 sm:p-8 shadow-xl border border-gray-200 flex flex-col relative overflow-hidden">
+                                    <div className="kop-surat flex justify-between items-start mb-6 gap-6">
+                                        <div className="kop-kiri flex items-center gap-4 w-auto">
                                             <div className="flex flex-col items-center">
-                                                <div className="w-[100px] md:w-[120px] shrink-0 border border-slate-200 rounded p-1 bg-slate-50 flex items-center justify-center">
+                                                <div className="w-[120px] shrink-0 border border-slate-200 rounded p-1 bg-slate-50 flex items-center justify-center">
                                                     <img src="https://drive.google.com/uc?id=1xBkWoexBfNOe8WKhDp8WBkh7hjvK4Yub" crossOrigin="anonymous" alt="Exceed Logo" className="w-full h-auto object-contain" onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
                                                     <div style={{display: 'none'}} className="w-full h-[40px] bg-[#0f172a] flex-col justify-center items-center text-white italic rounded-sm">
                                                         <span className="text-lg font-black text-orange-500">e<span className="text-blue-300">X</span></span>
                                                     </div>
                                                 </div>
-                                                <span className="text-[8px] md:text-[10px] font-bold italic text-slate-700 mt-1.5 whitespace-nowrap">"Antar tuntas harga pas"</span>
+                                                <span className="text-[10px] font-bold italic text-slate-700 mt-1.5 whitespace-nowrap">"Antar tuntas harga pas"</span>
                                             </div>
-                                            <div className="flex flex-col gap-1 w-full sm:w-auto mt-2 sm:mt-0">
-                                                <div className="border border-black px-3 md:px-4 py-1.5 font-bold text-xs md:text-sm min-w-[200px] md:min-w-[250px] uppercase bg-gray-50 flex items-center w-full">
-                                                    <span className="text-[9px] md:text-[10px] text-gray-500 mr-2 border-r border-gray-400 pr-2">OLSHOP</span>{userProfile.name}
+                                            <div className="flex flex-col gap-1 w-auto mt-0">
+                                                <div className="border border-black px-4 py-1.5 font-bold text-sm min-w-[250px] uppercase bg-gray-50 flex items-center w-full">
+                                                    <span className="text-[10px] text-gray-500 mr-2 border-r border-gray-400 pr-2">OLSHOP</span>{userProfile.name}
                                                 </div>
-                                                <div className="border border-black px-3 md:px-4 py-1.5 text-xs md:text-sm font-semibold min-w-[200px] md:min-w-[250px] w-full">
+                                                <div className="border border-black px-4 py-1.5 text-sm font-semibold min-w-[250px] w-full">
                                                     {(startDate || endDate) ? (startDate === endDate ? getIndoDate(startDate) : `${getIndoDate(startDate)} - ${getIndoDate(endDate)}`) : 'Semua Waktu'}
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <div className="kop-kanan flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
-                                            <table className="box-summary w-full sm:w-[260px]">
+                                        <div className="kop-kanan flex gap-4 w-auto">
+                                            <table className="box-summary w-[260px]">
                                                 <tbody>
-                                                    <tr><td className="bg-gray-100 w-[40%] sm:w-[140px]">Setoran</td><td className="text-right w-[60%] sm:w-[120px]">{formatCurrency(cetakSummary.setoran)}</td></tr>
+                                                    <tr><td className="bg-gray-100 w-[140px]">Setoran</td><td className="text-right w-[120px]">{formatCurrency(cetakSummary.setoran)}</td></tr>
                                                     <tr><td className="bg-gray-100">TF/VOLUME</td><td className="text-right text-red-600">{formatCurrency(cetakSummary.tfVolume)}</td></tr>
                                                     <tr><td className="bg-gray-100">Estimasi Setoran</td><td className="text-right text-blue-600">{formatCurrency(cetakSummary.estimasiSetoran)}</td></tr>
                                                     <tr><td className="bg-gray-100">SUDAH CAIR</td><td className="text-right text-emerald-600">{formatCurrency(cetakSummary.sudahSetor)}</td></tr>
                                                 </tbody>
                                             </table>
-                                            <table className="box-summary w-full sm:w-[120px]">
+                                            <table className="box-summary w-[120px]">
                                                 <tbody>
-                                                    <tr><td className="bg-green-400 text-green-900 sm:text-center uppercase tracking-wider w-[70%] sm:w-auto">SUKSES</td><td className="text-right sm:text-center font-black text-lg sm:w-[40px] w-[30%]">{cetakSummary.sukses}</td></tr>
-                                                    <tr><td className="bg-yellow-400 text-yellow-900 sm:text-center uppercase tracking-wider">PENDING</td><td className="text-right sm:text-center font-black text-lg">{cetakSummary.pending}</td></tr>
-                                                    <tr><td className="bg-red-500 text-white sm:text-center uppercase tracking-wider">CANCEL</td><td className="text-right sm:text-center font-black text-lg">{cetakSummary.cancel}</td></tr>
+                                                    <tr><td className="bg-green-400 text-green-900 text-center uppercase tracking-wider w-[70%]">SUKSES</td><td className="text-center font-black text-lg w-[30%]">{cetakSummary.sukses}</td></tr>
+                                                    <tr><td className="bg-yellow-400 text-yellow-900 text-center uppercase tracking-wider">PENDING</td><td className="text-center font-black text-lg">{cetakSummary.pending}</td></tr>
+                                                    <tr><td className="bg-red-500 text-white text-center uppercase tracking-wider">CANCEL</td><td className="text-center font-black text-lg">{cetakSummary.cancel}</td></tr>
                                                 </tbody>
                                             </table>
                                         </div>
