@@ -53,16 +53,34 @@
         .box-summary { border: 1px solid #000; font-size: 12px; font-weight: bold; background-color: #fff; }
         .box-summary td { border: 1px solid #000; padding: 4px 8px; }
 
+        /* Tampilan Mobile Card (Anti-Geser) */
         @media screen and (max-width: 768px) {
-            .cetak-container { padding: 12px !important; }
-            .excel-table, .excel-table tbody, .excel-table tr, .excel-table td { display: block; width: 100%; }
-            .excel-table thead { display: none; }
-            .excel-table tr { margin-bottom: 16px; border: 2px solid #e5e7eb; border-radius: 8px; background-color: #fff; overflow: hidden; }
-            .excel-table td { text-align: right !important; padding: 8px 12px 8px 50% !important; position: relative; border: none !important; border-bottom: 1px solid #f3f4f6 !important; font-size: 12px; }
-            .excel-table td:last-child { border-bottom: none !important; }
-            .excel-table td::before { content: attr(data-label); position: absolute; left: 12px; width: 45%; text-align: left; font-weight: bold; color: #6b7280; white-space: nowrap; }
-            .bg-yellow-100 td { border-bottom-color: #fef08a !important; }
-            .bg-red-100 td { border-bottom-color: #fecaca !important; }
+            /* Pastikan elemen cetak tidak terpengaruh jika dipaksa lebar saat export */
+            .cetak-container:not(.force-desktop) { padding: 12px !important; }
+            .cetak-container:not(.force-desktop) .excel-table, 
+            .cetak-container:not(.force-desktop) .excel-table tbody, 
+            .cetak-container:not(.force-desktop) .excel-table tr, 
+            .cetak-container:not(.force-desktop) .excel-table td { display: block; width: 100%; }
+            .cetak-container:not(.force-desktop) .excel-table thead { display: none; }
+            .cetak-container:not(.force-desktop) .excel-table tr { margin-bottom: 16px; border: 2px solid #e5e7eb; border-radius: 8px; background-color: #fff; overflow: hidden; }
+            .cetak-container:not(.force-desktop) .excel-table td { text-align: right !important; padding: 8px 12px 8px 50% !important; position: relative; border: none !important; border-bottom: 1px solid #f3f4f6 !important; font-size: 12px; }
+            .cetak-container:not(.force-desktop) .excel-table td:last-child { border-bottom: none !important; }
+            .cetak-container:not(.force-desktop) .excel-table td::before { content: attr(data-label); position: absolute; left: 12px; width: 45%; text-align: left; font-weight: bold; color: #6b7280; white-space: nowrap; }
+            .cetak-container:not(.force-desktop) .bg-yellow-100 td { border-bottom-color: #fef08a !important; }
+            .cetak-container:not(.force-desktop) .bg-red-100 td { border-bottom-color: #fecaca !important; }
+            
+            /* Penataan Kop Kop Surat Mobile */
+            .cetak-container:not(.force-desktop) .kop-surat { flex-direction: column !important; align-items: stretch !important; gap: 1rem !important; }
+            .cetak-container:not(.force-desktop) .kop-kiri { flex-direction: column !important; align-items: center !important; }
+            .cetak-container:not(.force-desktop) .kop-kanan { flex-direction: column !important; width: 100% !important; gap: 0.5rem !important; }
+            .cetak-container:not(.force-desktop) .kop-kanan table { width: 100% !important; }
+        }
+
+        /* Class bantuan untuk memaksa ukuran Desktop saat proses Download PDF/JPG */
+        .force-desktop {
+            width: 1100px !important;
+            max-width: 1100px !important;
+            padding: 32px !important;
         }
 
         #export-loading {
@@ -443,14 +461,30 @@
                 if (!userProfile || !printAreaRef.current) return;
                 const loadingEl = document.getElementById('export-loading');
                 loadingEl.style.display = 'flex'; 
+                
+                const element = printAreaRef.current;
+                
+                // 1. Simpan posisi scroll
                 const currentScrollY = window.scrollY;
                 window.scrollTo(0, 0);
 
+                // 2. PAKSA elemen menjadi format Desktop lebar (1100px) sebelum dipotret
+                element.classList.add('force-desktop');
+
                 setTimeout(async () => {
                     try {
-                        const element = printAreaRef.current;
-                        const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff', windowWidth: element.scrollWidth, windowHeight: element.scrollHeight });
+                        const canvas = await html2canvas(element, { 
+                            scale: 2, 
+                            useCORS: true, 
+                            backgroundColor: '#ffffff', 
+                            windowWidth: 1100, // Beritahu html2canvas bahwa layarnya selebar 1100px
+                            // windowHeight tidak dibatasi agar tabel terpotret penuh ke bawah
+                        });
+                        
+                        // 3. Kembalikan ke tampilan awal setelah dipotret
+                        element.classList.remove('force-desktop');
                         window.scrollTo(0, currentScrollY);
+
                         const imgData = canvas.toDataURL('image/jpeg', 1.0);
                         const safeFileNameDate = (startDate === endDate && startDate) ? startDate : 'Rentang_Waktu';
                         const fileName = `Invoice_${userProfile.name.replace(/\s+/g, '_')}_${safeFileNameDate}`;
@@ -460,10 +494,13 @@
                         } else if (format === 'pdf') {
                             const { jsPDF } = window.jspdf;
                             const pdf = new jsPDF('l', 'mm', 'a4');
+                            
                             const pdfWidth = pdf.internal.pageSize.getWidth();
                             const pdfHeight = pdf.internal.pageSize.getHeight();
+                            
                             const imgWidth = pdfWidth - 20; 
                             const imgHeight = (canvas.height * imgWidth) / canvas.width; 
+                            
                             let heightLeft = imgHeight;
                             let position = 10; 
                             
@@ -478,7 +515,12 @@
                             }
                             pdf.save(`${fileName}.pdf`);
                         }
-                    } catch (err) { alert("Terjadi kesalahan saat memproses ekspor."); } finally { loadingEl.style.display = 'none'; }
+                    } catch (err) { 
+                        alert("Terjadi kesalahan saat memproses ekspor."); 
+                        element.classList.remove('force-desktop'); // Pastikan dihapus meski error
+                    } finally { 
+                        loadingEl.style.display = 'none'; 
+                    }
                 }, 800); 
             };
 
@@ -836,9 +878,9 @@
                         {/* ========================================================================= */}
                         {activeMenuTab === 'cetak' && (
                             <div className="animate-fade-in-down">
-                                <div ref={printAreaRef} className="cetak-container bg-white mx-auto w-full p-4 sm:p-8 shadow-xl border border-gray-200 flex flex-col">
-                                    <div className="flex flex-col lg:flex-row justify-between items-start mb-6 gap-6">
-                                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full lg:w-auto">
+                                <div ref={printAreaRef} className="cetak-container bg-white mx-auto w-full max-w-[1100px] p-4 sm:p-8 shadow-xl border border-gray-200 flex flex-col relative overflow-hidden">
+                                    <div className="kop-surat flex flex-col lg:flex-row justify-between items-start mb-6 gap-6">
+                                        <div className="kop-kiri flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full lg:w-auto">
                                             <div className="flex flex-col items-center">
                                                 <div className="w-[100px] md:w-[120px] shrink-0 border border-slate-200 rounded p-1 bg-slate-50 flex items-center justify-center">
                                                     <img src="https://drive.google.com/uc?id=1xBkWoexBfNOe8WKhDp8WBkh7hjvK4Yub" crossOrigin="anonymous" alt="Exceed Logo" className="w-full h-auto object-contain" onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
@@ -858,7 +900,7 @@
                                             </div>
                                         </div>
 
-                                        <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
+                                        <div className="kop-kanan flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
                                             <table className="box-summary w-full sm:w-[260px]">
                                                 <tbody>
                                                     <tr><td className="bg-gray-100 w-[40%] sm:w-[140px]">Setoran</td><td className="text-right w-[60%] sm:w-[120px]">{formatCurrency(cetakSummary.setoran)}</td></tr>
