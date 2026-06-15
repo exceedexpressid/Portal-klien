@@ -5,20 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Exceed Express - Portal Klien</title>
     
+    <!-- TAG APLIKASI ANDROID -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#e65c00">
+    <link rel="apple-touch-icon" href="https://drive.google.com/uc?id=1xBkWoexBfNOe8WKhDp8WBkh7hjvK4Yub">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('sw.js')
+            .then(reg => console.log('Aplikasi siap diinstal!', reg.scope))
+            .catch(err => console.log('Service Worker gagal:', err));
+        });
+      }
+    </script>
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Leaflet CSS & JS untuk Tracking Maps -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <!-- React & ReactDOM -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <!-- Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-    <!-- PUSTAKA UNTUK EXPORT JPG & PDF -->
+    <!-- html2canvas & jsPDF -->
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
@@ -28,7 +44,6 @@
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
         
-        /* Animasi Marquee (Running Text) */
         .marquee-content { display: inline-block; white-space: nowrap; animation: marquee 12s linear infinite; }
         @keyframes marquee { 0% { transform: translateX(100vw); } 100% { transform: translateX(-100%); } }
         
@@ -38,7 +53,6 @@
         @keyframes bounce-move { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-5px) rotate(2deg); } }
         .moving-truck-marker { animation: bounce-move 1s ease-in-out infinite; filter: drop-shadow(2px 4px 4px rgba(0,0,0,0.4)); }
 
-        /* KHUSUS UNTUK MESIN CETAK (Dasar Desktop Murni) */
         @media print {
             @page { size: landscape; margin: 10mm; }
             body { background-color: #fff; }
@@ -53,18 +67,9 @@
         .box-summary { border: 1px solid #000; font-size: 12px; font-weight: bold; background-color: #fff; }
         .box-summary td { border: 1px solid #000; padding: 4px 8px; }
 
-        /* Class bantuan untuk memaksa ukuran Desktop secara absolut saat proses Download PDF/JPG */
-        .force-desktop {
-            width: 1150px !important;
-            max-width: 1150px !important;
-            padding: 32px !important;
-            background-color: white !important;
-        }
+        .force-desktop { width: 1150px !important; max-width: 1150px !important; padding: 32px !important; background-color: white !important; }
 
-        #export-loading {
-            display: none; position: fixed; inset: 0; background: rgba(255,255,255,0.95);
-            z-index: 9999; flex-direction: column; align-items: center; justify-content: center;
-        }
+        #export-loading { display: none; position: fixed; inset: 0; background: rgba(255,255,255,0.95); z-index: 9999; flex-direction: column; align-items: center; justify-content: center; }
     </style>
 </head>
 <body class="antialiased text-gray-800">
@@ -79,9 +84,6 @@
     <script type="text/babel">
         const { useState, useEffect, useRef, useMemo } = React;
 
-        // =================================================================================
-        // KONFIGURASI GLOBAL 
-        // =================================================================================
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzVHojspm17WSZU42RaMtgiNWJikRfGyTlPh1FczlDJS9JL52PxX0d9RpkNJYM4g424/exec"; 
         const APPSHEET_APP_ID = "APLIKASEXCEED-327461285";
 
@@ -115,10 +117,10 @@
 
         const StatusBadge = ({ status }) => {
             const s = String(status).toLowerCase();
-            if(s === 'sukses') return <span className="bg-[#153a2b] text-[#34d399] px-2 py-0.5 rounded md:rounded-md text-[8px] md:text-[11px] font-bold border border-[#1d4f3b] shadow-sm"><i className="fas fa-check-circle mr-1"></i>Sukses</span>;
-            if(s === 'cancel') return <span className="bg-[#450a0a] text-[#f87171] px-2 py-0.5 rounded md:rounded-md text-[8px] md:text-[11px] font-bold border border-[#7f1d1d] shadow-sm"><i className="fas fa-times-circle mr-1"></i>Cancel</span>;
-            if(s === 'pending') return <span className="bg-[#431407] text-[#fb923c] px-2 py-0.5 rounded md:rounded-md text-[8px] md:text-[11px] font-bold border border-[#7c2d12] shadow-sm"><i className="fas fa-clock mr-1"></i>Tertunda</span>;
-            return <span className="bg-[#1e3a8a] text-[#60a5fa] px-2 py-0.5 rounded md:rounded-md text-[8px] md:text-[11px] font-bold border border-[#1e40af] shadow-sm"><i className="fas fa-truck mr-1 animate-pulse"></i>Proses Antar</span>;
+            if(s === 'sukses') return <span className="bg-[#153a2b] text-[#34d399] px-2 py-0.5 rounded md:rounded-md text-[8px] md:text-[10px] font-bold border border-[#1d4f3b] shadow-sm"><i className="fas fa-check-circle mr-1"></i>Sukses</span>;
+            if(s === 'cancel') return <span className="bg-[#450a0a] text-[#f87171] px-2 py-0.5 rounded md:rounded-md text-[8px] md:text-[10px] font-bold border border-[#7f1d1d] shadow-sm"><i className="fas fa-times-circle mr-1"></i>Cancel</span>;
+            if(s === 'pending') return <span className="bg-[#431407] text-[#fb923c] px-2 py-0.5 rounded md:rounded-md text-[8px] md:text-[10px] font-bold border border-[#7c2d12] shadow-sm"><i className="fas fa-clock mr-1"></i>Tertunda</span>;
+            return <span className="bg-[#1e3a8a] text-[#60a5fa] px-2 py-0.5 rounded md:rounded-md text-[8px] md:text-[10px] font-bold border border-[#1e40af] shadow-sm"><i className="fas fa-truck mr-1 animate-pulse"></i>Proses Antar</span>;
         };
 
         const getIndoDate = (dateStr) => {
@@ -130,7 +132,6 @@
             } catch(e) { return dateStr; }
         };
 
-        // KOMPONEN: PETA TRACKING PINTAR (GEOCODING)
         function TrackingMap({ packageId, address, status, koordinatGps }) {
             const mapRef = useRef(null);
 
@@ -192,19 +193,16 @@
             const isProsesStatus = ['siap_antar', 'proses'].includes(String(status).toLowerCase().replace(' ', '_'));
 
             return (
-                <div className="mt-3 bg-white p-2.5 rounded-xl border border-gray-200 shadow-inner animate-fade-in-down no-print">
+                <div className="mt-2 bg-[#0f172a] p-2.5 rounded-xl border border-[#2a3147] shadow-inner animate-fade-in-down no-print w-full">
                     <div className="flex justify-between items-center mb-1.5 text-[9px] md:text-[10px] font-bold text-gray-500 uppercase tracking-widest">
                         <span><i className={`fas ${isProsesStatus ? 'fa-satellite-dish text-blue-500 animate-pulse' : 'fa-map-marked-alt text-emerald-500'} mr-1.5`}></i> Titik Lokasi</span>
-                        <span id={`coord-text-${packageId}`} className="text-[#e65c00] truncate max-w-[150px] text-right bg-orange-50 px-2 py-0.5 rounded border border-orange-100">Memuat lokasi...</span>
+                        <span id={`coord-text-${packageId}`} className="text-[#60a5fa] truncate max-w-[150px] text-right bg-[#1e3a8a]/30 px-2 py-0.5 rounded border border-[#1e40af]">Memuat lokasi...</span>
                     </div>
-                    <div id={`map-${packageId}`} className="h-40 md:h-48 w-full rounded-lg z-0 overflow-hidden border border-gray-200"></div>
+                    <div id={`map-${packageId}`} className="h-48 w-full rounded-lg z-0 overflow-hidden border border-[#2a3147]"></div>
                 </div>
             );
         }
 
-        // =================================================================================
-        // KOMPONEN UTAMA (APP)
-        // =================================================================================
         function App() {
             const [userProfile, setUserProfile] = useState(() => loadLocal('ex_olshopProfile', null));
             const [isLoadingSync, setIsLoadingSync] = useState(false);
@@ -222,18 +220,15 @@
             const [endDate, setEndDate] = useState('');
             
             const [activeMenuTab, setActiveMenuTab] = useState('dashboard');
-            const [expandedCustomers, setExpandedCustomers] = useState([]);
             const [showMapIds, setShowMapIds] = useState([]);
             const [selectedImage, setSelectedImage] = useState(null);
 
             const printAreaRef = useRef(null);
 
-            // MEMOIZATION DATA PINTAR & AMAN HOOKS
             const memoizedData = useMemo(() => {
-                const defaultEmpty = { filteredPkgs: [], groupedCustomers: [], keuangan: { saldoBelumCair: 0, danaSudahCairBersih: 0, potonganBelumCair: 0, totalPencairan: 0 }, ringkasan: { s_sukses: 0, s_proses: 0, s_pending: 0, s_cancel: 0, uangBarang: 0, totalBebanOngkirOlshop: 0, totalBersih: 0 }, cetakSummary: { sukses: 0, pending: 0, cancel: 0, setoran: 0, tfVolume: 0, estimasiSetoran: 0, sudahSetor: 0 } };
+                const defaultEmpty = { filteredPkgs: [], keuangan: { saldoBelumCair: 0, danaSudahCairBersih: 0, potonganBelumCair: 0, totalPencairan: 0 }, ringkasan: { s_sukses: 0, s_proses: 0, s_pending: 0, s_cancel: 0, uangBarang: 0, totalBebanOngkirOlshop: 0, totalBersih: 0 }, cetakSummary: { sukses: 0, pending: 0, cancel: 0, setoran: 0, tfVolume: 0, estimasiSetoran: 0, sudahSetor: 0 } };
                 if (!userProfile) return defaultEmpty;
 
-                // 1. FILTERING DATA PAKET
                 const myPackagesGlobal = packages.filter(p => {
                     const pOlshopName = String(p.olshopName).trim().toLowerCase();
                     const uName = String(userProfile.name).trim().toLowerCase();
@@ -279,39 +274,6 @@
                     filtered = filtered.filter(p => p.customerName.toLowerCase().includes(searchQuery.toLowerCase()) || p.packageId.toLowerCase().includes(searchQuery.toLowerCase()));
                 }
 
-                // 2. PENGELOMPOKAN CUSTOMER
-                const groups = {};
-                filtered.forEach(pkg => {
-                    const cName = String(pkg.customerName || 'Tanpa Nama').trim().toUpperCase();
-                    if(!groups[cName]) {
-                        groups[cName] = {
-                            customerName: cName, packages: [], s_sukses: 0, s_proses: 0, s_pending: 0, s_cancel: 0,
-                            uangCASH: 0, uangTFOlshop: 0, uangTFKantor: 0, ongkirDasar: 0, ongkirTambahan: 0, bebanOngkirOlshop: 0, totalBersih: 0
-                        };
-                    }
-                    const g = groups[cName];
-                    g.packages.push(pkg);
-                    
-                    let stat = String(pkg.status).toLowerCase().replace(' ', '_');
-                    if(stat === 'sukses') g.s_sukses++;
-                    else if(stat === 'siap_antar' || stat === 'proses') g.s_proses++;
-                    else if(stat === 'pending') g.s_pending++;
-                    else if(stat === 'cancel') g.s_cancel++;
-
-                    const { hBarang, oDasar, oTambahan, oTotal } = getFinancials(pkg);
-                    const metode = String(pkg.metodeBayar).trim().toUpperCase();
-
-                    if(stat === 'sukses') {
-                        g.ongkirDasar += oDasar; g.ongkirTambahan += oTambahan;
-                        if (metode === 'CASH' || metode === 'COD') g.uangCASH += hBarang; 
-                        else if (metode === 'TF OLSHOP') { g.uangTFOlshop += hBarang; g.bebanOngkirOlshop += oTotal; } 
-                        else if (metode === 'TF KANTOR') g.uangTFKantor += hBarang; 
-                    }
-                    g.totalBersih = g.uangCASH + g.uangTFKantor - g.bebanOngkirOlshop;
-                });
-                const groupedCusts = Object.values(groups).sort((a,b) => b.packages.length - a.packages.length);
-
-                // 3. KEUANGAN UTAMA 
                 let saldoBelumCair = 0; let danaSudahCairBersih = 0; let potonganBelumCair = 0;
                 filtered.forEach(p => {
                     if (String(p.status).toLowerCase() === 'sukses') {
@@ -328,7 +290,6 @@
                 });
                 const keu = { saldoBelumCair, danaSudahCairBersih, potonganBelumCair, totalPencairan: saldoBelumCair - potonganBelumCair };
 
-                // 4. RINGKASAN TABEL
                 let rs_sukses = 0, rs_proses = 0, rs_pending = 0, rs_cancel = 0;
                 let uangBarang = 0, totalBebanOngkirOlshop = 0;
                 filtered.forEach(p => {
@@ -347,7 +308,6 @@
                 });
                 const ringk = { s_sukses: rs_sukses, s_proses: rs_proses, s_pending: rs_pending, s_cancel: rs_cancel, uangBarang, totalBebanOngkirOlshop, totalBersih: uangBarang - totalBebanOngkirOlshop };
 
-                // 5. CETAK REKAP SUMMARY
                 let cs_sukses = 0, cs_pending = 0, cs_cancel = 0;
                 let setoran = 0; let tfVolume = 0; let sudahSetor = 0; 
                 filtered.forEach(pkg => {
@@ -368,12 +328,11 @@
                 });
                 const cSummary = { sukses: cs_sukses, pending: cs_pending, cancel: cs_cancel, setoran, tfVolume, estimasiSetoran: setoran - tfVolume, sudahSetor };
 
-                return { filteredPkgs: filtered, groupedCustomers: groupedCusts, keuangan: keu, ringkasan: ringk, cetakSummary: cSummary };
+                return { filteredPkgs: filtered, keuangan: keu, ringkasan: ringk, cetakSummary: cSummary };
             }, [packages, userProfile, startDate, endDate, filterStatus, searchQuery]);
 
-            const { filteredPkgs, groupedCustomers, keuangan, ringkasan, cetakSummary } = memoizedData;
+            const { filteredPkgs, keuangan, ringkasan, cetakSummary } = memoizedData;
 
-            const toggleCustomerExpand = (name) => setExpandedCustomers(prev => prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]);
             const toggleMap = (id) => setShowMapIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
 
             useEffect(() => { localStorage.setItem('ex_olshopProfile', JSON.stringify(userProfile)); }, [userProfile]);
@@ -441,12 +400,9 @@
                 loadingEl.style.display = 'flex'; 
                 
                 const element = printAreaRef.current;
-                
-                // 1. Simpan posisi scroll
                 const currentScrollY = window.scrollY;
                 window.scrollTo(0, 0);
 
-                // 2. PAKSA elemen menjadi format Desktop lebar secara absolut
                 element.classList.add('force-desktop');
 
                 setTimeout(async () => {
@@ -462,7 +418,6 @@
                             }
                         });
                         
-                        // 3. Kembalikan ke tampilan awal setelah dipotret
                         element.classList.remove('force-desktop');
                         window.scrollTo(0, currentScrollY);
 
@@ -505,7 +460,6 @@
                 }, 800); 
             };
 
-            // EARLY RETURN: TAMPILAN LOGIN JIKA BELUM MASUK
             if (!userProfile) {
                 return (
                     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4 relative overflow-hidden">
@@ -540,10 +494,8 @@
                 );
             }
 
-            // TAMPILAN DASHBOARD UTAMA
             return (
-                <div className="min-h-screen bg-gray-100 font-sans w-full md:max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto shadow-2xl relative flex flex-col">
-                    {/* HEADER */}
+                <div className="min-h-screen bg-gray-100 font-sans w-full md:max-w-3xl lg:max-w-5xl xl:max-w-7xl mx-auto shadow-2xl relative flex flex-col">
                     <header className="bg-[#0f172a] px-4 py-3 md:py-4 shadow-md z-10 sticky top-0 flex flex-col md:flex-row justify-between items-center border-b border-slate-800 gap-3 md:gap-0 no-print">
                         <div className="w-full md:w-auto flex justify-between items-center">
                             <div>
@@ -555,7 +507,6 @@
                             </button>
                         </div>
 
-                        {/* NAVIGASI TAB MENU */}
                         <div className="flex bg-[#1e293b] rounded-xl p-1 border border-slate-700 w-full md:w-auto shadow-inner">
                             <button onClick={() => setActiveMenuTab('dashboard')} className={`flex-1 md:w-32 px-3 py-2 text-[10px] md:text-xs font-bold rounded-lg transition-all ${activeMenuTab === 'dashboard' ? 'bg-[#e65c00] text-white shadow-md' : 'text-slate-400 hover:text-white'}`}><i className="fas fa-chart-pie mr-1.5"></i> Dashboard</button>
                             <button onClick={() => setActiveMenuTab('cetak')} className={`flex-1 md:w-32 px-3 py-2 text-[10px] md:text-xs font-bold rounded-lg transition-all ${activeMenuTab === 'cetak' ? 'bg-[#e65c00] text-white shadow-md' : 'text-slate-400 hover:text-white'}`}><i className="fas fa-print mr-1.5"></i> Cetak Rekap</button>
@@ -566,7 +517,6 @@
                         </button>
                     </header>
 
-                    {/* MARQUEE */}
                     <div className="bg-[#fff7ed] border-b border-[#fed7aa] w-full overflow-hidden shadow-sm no-print">
                         <div className="marquee-content py-1.5 text-[10px] md:text-xs font-black tracking-wider text-[#ea580c] uppercase">
                             <i className="fas fa-bolt mr-2"></i> Antar tuntas, harga pas &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
@@ -575,7 +525,6 @@
                         </div>
                     </div>
 
-                    {/* KONTROL FILTER GLOBAL */}
                     <div className="px-3 md:px-5 lg:px-6 pt-4 no-print">
                         <div className="bg-white p-3 md:p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-center space-y-3">
                             <div className="relative">
@@ -609,12 +558,9 @@
 
                     <div className="flex-1 p-3 md:p-5 lg:p-6 pb-8">
                         
-                        {/* ========================================================================= */}
-                        {/* TAB 1: DASHBOARD UTAMA */}
-                        {/* ========================================================================= */}
                         {activeMenuTab === 'dashboard' && (
                             <div className="space-y-4 md:space-y-5 animate-fade-in-down no-print">
-                                {/* KARTU KEUANGAN & STATUS */}
+                                {/* KARTU KEUANGAN & STATUS TETAP ADA */}
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
                                     <div className="bg-gradient-to-br from-[#e65c00] to-[#b34700] rounded-2xl p-4 md:p-5 text-white shadow-md relative overflow-hidden h-full flex flex-col justify-between">
                                         <div className="absolute -right-2 -top-2 opacity-10"><i className="fas fa-wallet text-[100px] md:text-[120px]"></i></div>
@@ -665,188 +611,176 @@
                                     </div>
                                 </div>
 
-                                {/* DAFTAR CUSTOMER */}
+                                {/* DESAIN BARU: TABEL DATA FLAT (SESUAI GAMBAR) */}
                                 <div className="mt-6 flex flex-col">
                                     <div className="px-1 md:px-2 pb-3 flex justify-between items-end border-b border-gray-300 mb-2">
-                                        <h3 className="font-black text-gray-700 text-sm md:text-lg"><i className="fas fa-users text-[#e65c00] mr-2"></i>Daftar Customer</h3>
-                                        <span className="text-[9px] md:text-[10px] font-bold bg-gray-200 text-gray-600 px-3 py-1 rounded-full">{groupedCustomers.length} Pelanggan</span>
+                                        <h3 className="font-black text-gray-700 text-sm md:text-lg"><i className="fas fa-list-alt text-[#e65c00] mr-2"></i>Rincian Paket Pelanggan</h3>
+                                        <span className="text-[9px] md:text-[10px] font-bold bg-gray-200 text-gray-600 px-3 py-1 rounded-full">{filteredPkgs.length} Paket</span>
                                     </div>
 
-                                    {groupedCustomers.length === 0 ? (
+                                    {filteredPkgs.length === 0 ? (
                                         <div className="text-center py-16 bg-white rounded-xl border border-gray-200 shadow-sm mt-2">
                                             <i className="fas fa-box-open text-gray-300 mb-3 text-5xl"></i>
                                             <p className="text-gray-500 font-medium text-sm">Tidak ada data paket untuk ditampilkan.</p>
                                         </div>
                                     ) : (
-                                        <div className="w-full bg-[#1e2336] rounded-xl border border-[#2a3147] shadow-lg overflow-hidden">
-                                            <div className="w-full min-w-0 lg:overflow-x-auto lg:scrollbar-hide">
-                                                <div className="flex flex-col font-sans w-full lg:min-w-[1250px]">
-                                                    <div className="hidden lg:grid grid-cols-[200px_280px_140px_1fr_1fr_1fr_1fr_120px] gap-3 px-4 py-3 text-[10px] text-gray-400 font-bold uppercase tracking-widest bg-[#151928] border-b border-[#2a3147] items-center">
-                                                        <div>NAMA TOKO / OLSHOP</div><div className="px-2">FOTO & RESI</div><div className="flex justify-center">STATUS</div><div className="flex justify-center text-[#34d399]">CASH / COD</div><div className="flex justify-center text-[#60a5fa]">TF OLSHOP</div><div className="flex justify-center text-[#c084fc]">TF KANTOR</div><div className="flex justify-center text-[#f87171] text-center px-1">BEBAN ONGKIR (MINUS)</div><div className="flex justify-end pr-2 text-white">TOTAL BERSIH</div>
-                                                    </div>
+                                        <div className="w-full bg-[#1e2336] rounded-xl border border-[#2a3147] shadow-lg overflow-hidden mt-2">
+                                            {/* Container Scroll Horizontal untuk Mobile */}
+                                            <div className="overflow-x-auto scrollbar-hide w-full">
+                                                <table className="w-full min-w-[1250px] text-left text-[11px] md:text-xs text-gray-300 border-collapse">
+                                                    
+                                                    {/* HEADER BIRU (Sesuai Gambar Request) */}
+                                                    <thead className="bg-[#1976d2] text-white uppercase text-[10px] md:text-[11px] font-bold tracking-wider">
+                                                        <tr>
+                                                            <th className="px-3 py-4 text-center border-r border-blue-400/50 w-12">NO</th>
+                                                            <th className="px-3 py-4 border-r border-blue-400/50 w-28">NO RESI</th>
+                                                            <th className="px-3 py-4 border-r border-blue-400/50 w-48">NAMA CUSTOMER</th>
+                                                            <th className="px-3 py-4 text-center border-r border-blue-400/50 w-20">FOTO PAKET</th>
+                                                            <th className="px-3 py-4 text-center border-r border-blue-400/50 w-24">LACAK PAKET</th>
+                                                            <th className="px-3 py-4 text-center border-r border-blue-400/50 w-28">STATUS</th>
+                                                            <th className="px-3 py-4 text-right border-r border-blue-400/50 w-28">CASH / COD</th>
+                                                            <th className="px-3 py-4 text-right border-r border-blue-400/50 w-28">TF OLSHOP</th>
+                                                            <th className="px-3 py-4 text-right border-r border-blue-400/50 w-28">TF KANTOR</th>
+                                                            <th className="px-3 py-4 text-right border-r border-blue-400/50 w-32">BEBAN ONGKIR/MINUS</th>
+                                                            <th className="px-3 py-4 text-right w-32">TOTAL BERSIH</th>
+                                                        </tr>
+                                                    </thead>
+                                                    
+                                                    {/* BODY TABEL */}
+                                                    <tbody className="divide-y divide-[#2a3147]">
+                                                        {filteredPkgs.map((pkg, idx) => {
+                                                            const isMapShown = showMapIds.includes(pkg.packageId);
+                                                            const isSukses = String(pkg.status).toLowerCase() === 'sukses';
+                                                            const isProses = ['siap_antar', 'proses'].includes(String(pkg.status).toLowerCase().replace(' ', '_'));
+                                                            
+                                                            const resolvedUrlFoto = getFotoUrl(pkg);
+                                                            const metode = String(pkg.metodeBayar).trim().toUpperCase();
+                                                            const { hBarang, oTotal } = getFinancials(pkg);
 
-                                                    {groupedCustomers.map((group, idx) => {
-                                                        const isGroupExpanded = expandedCustomers.includes(group.customerName);
-                                                        
-                                                        return (
-                                                            <div key={idx} className="flex flex-col border-b border-[#2a3147] last:border-0 hover:bg-[#252b41] transition-colors">
-                                                                <div className="flex flex-col lg:grid lg:grid-cols-[200px_280px_140px_1fr_1fr_1fr_1fr_120px] gap-2 lg:gap-3 px-3 py-3 md:px-4 md:py-3.5 cursor-pointer items-start lg:items-center" onClick={() => toggleCustomerExpand(group.customerName)}>
-                                                                    <div className="flex items-center justify-between w-full lg:w-auto">
-                                                                        <div className="flex items-center gap-2">
-                                                                            <div className={`w-5 h-5 shrink-0 rounded bg-[#2a3147] flex items-center justify-center text-gray-400 transition-transform ${isGroupExpanded ? 'rotate-180' : ''}`}><i className="fas fa-chevron-down text-[10px]"></i></div>
-                                                                            <span className="font-bold text-white text-[12px] md:text-[13px] uppercase tracking-wide truncate max-w-[160px] md:max-w-full">{group.customerName}</span>
-                                                                            <span className="bg-[#2a3147] text-gray-300 text-[8px] md:text-[9px] px-2 py-0.5 rounded shadow-inner whitespace-nowrap">{group.packages.length} Pkt</span>
-                                                                        </div>
-                                                                        <div className="lg:hidden text-[12px] font-black text-[#fb923c] px-2 py-0.5 rounded border border-[#fb923c]/20 bg-[#fb923c]/10">{formatCurrency(group.totalBersih)}</div>
-                                                                    </div>
+                                                            // Kalkulasi Uang per Baris
+                                                            let cashCod = 0, tfOlshop = 0, tfKantor = 0, bebanOngkir = 0, totalBersih = 0;
 
-                                                                    <div className="flex flex-wrap gap-2 items-center w-full lg:w-auto mt-1 lg:mt-0 pl-1" onClick={(e) => e.stopPropagation()}>
-                                                                        {group.packages.map((pkg, pIdx) => {
-                                                                            const isPkgMapShown = showMapIds.includes(pkg.packageId);
-                                                                            const isSukses = String(pkg.status).toLowerCase() === 'sukses';
-                                                                            const isProses = ['siap_antar', 'proses'].includes(String(pkg.status).toLowerCase().replace(' ', '_'));
-                                                                            const resolvedUrlFoto = getFotoUrl(pkg);
-                                                                            
-                                                                            return (
-                                                                                <div key={pIdx} className="inline-flex items-center gap-1.5 md:gap-2 bg-[#151928] hover:bg-[#2a3147] border border-[#2a3147] text-gray-300 pr-2.5 md:pr-3 pl-1.5 py-1.5 rounded-lg text-[9px] md:text-[11px] font-mono transition-all shadow-sm">
-                                                                                    {resolvedUrlFoto ? (
-                                                                                        <img src={resolvedUrlFoto} alt="Paket" className="w-7 h-7 md:w-9 md:h-9 rounded object-cover border border-[#374151] cursor-pointer hover:opacity-80 shrink-0" onClick={(e) => { e.stopPropagation(); setSelectedImage(resolvedUrlFoto); }} />
-                                                                                    ) : (
-                                                                                        <div className="w-7 h-7 md:w-9 md:h-9 rounded bg-[#1e2336] border border-[#2a3147] flex items-center justify-center shrink-0 cursor-pointer hover:bg-gray-600" onClick={(e) => { e.stopPropagation(); setSelectedImage('https://via.placeholder.com/400x500/1e2336/9ca3af.png?text=Foto+Belum+Tersedia'); }}>
-                                                                                            <i className="fas fa-box text-[8px] md:text-[10px] text-gray-500"></i>
-                                                                                        </div>
-                                                                                    )}
-                                                                                    <span className="font-semibold tracking-wide ml-0.5">{pkg.packageId}</span>
-                                                                                    {(isSukses || isProses) && (
-                                                                                        <button onClick={(e) => { e.stopPropagation(); toggleMap(pkg.packageId); }} className={`ml-0.5 w-5 h-5 md:w-6 md:h-6 rounded-full flex items-center justify-center text-[8px] md:text-[10px] transition-colors ${isPkgMapShown ? 'bg-red-500/20 text-red-400 hover:bg-red-500/35' : 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/35'}`}>
-                                                                                            <i className={`fas ${isPkgMapShown ? 'fa-times' : 'fa-location-arrow'}`}></i>
-                                                                                        </button>
-                                                                                    )}
+                                                            if (isSukses) {
+                                                                if (metode === 'CASH' || metode === 'COD') cashCod = hBarang;
+                                                                else if (metode === 'TF OLSHOP') {
+                                                                    tfOlshop = hBarang;
+                                                                    bebanOngkir = oTotal; // Ongkir ditanggung olshop
+                                                                }
+                                                                else if (metode === 'TF KANTOR') tfKantor = hBarang;
+                                                                
+                                                                totalBersih = cashCod + tfKantor - bebanOngkir;
+                                                            }
+
+                                                            return (
+                                                                <React.Fragment key={idx}>
+                                                                    <tr className="hover:bg-[#252b41] transition-colors">
+                                                                        <td className="px-3 py-3 text-center font-bold text-gray-500 border-r border-[#2a3147]/50">{idx + 1}</td>
+                                                                        <td className="px-3 py-3 font-mono font-bold text-blue-400 border-r border-[#2a3147]/50">{pkg.packageId}</td>
+                                                                        
+                                                                        <td className="px-3 py-3 font-semibold text-gray-200 border-r border-[#2a3147]/50 truncate max-w-[200px]" title={pkg.customerName}>
+                                                                            {pkg.customerName}
+                                                                            {/* Sub-info kurir kecil di bawah nama */}
+                                                                            <div className="text-[9px] text-gray-500 font-normal mt-0.5 truncate"><i className="fas fa-motorcycle mr-1 text-gray-600"></i>{String(pkg.kurirId || 'Tanpa Kurir').split('@')[0]}</div>
+                                                                        </td>
+
+                                                                        <td className="px-3 py-3 text-center border-r border-[#2a3147]/50 align-middle">
+                                                                            {resolvedUrlFoto ? (
+                                                                                <img src={resolvedUrlFoto} alt="Bukti" className="w-8 h-8 mx-auto rounded object-cover cursor-pointer hover:opacity-80 border border-gray-600 shadow-sm" onClick={(e) => { e.stopPropagation(); setSelectedImage(resolvedUrlFoto); }} title="Lihat Foto Bukti" />
+                                                                            ) : (
+                                                                                <div className="w-8 h-8 mx-auto rounded bg-[#151928] flex items-center justify-center text-gray-500 border border-gray-600 cursor-pointer hover:bg-gray-700 shadow-inner" onClick={(e) => { e.stopPropagation(); setSelectedImage('https://via.placeholder.com/400x500/1e2336/9ca3af.png?text=Foto+Belum+Tersedia'); }}>
+                                                                                    <i className="fas fa-image text-xs"></i>
                                                                                 </div>
-                                                                            );
-                                                                        })}
-                                                                    </div>
+                                                                            )}
+                                                                        </td>
 
-                                                                    <div className="grid grid-cols-2 gap-2 w-full lg:hidden mt-2 border-t border-[#2a3147] pt-3 pb-1">
-                                                                        <div className="bg-[#151928] border border-[#2a3147] p-2.5 rounded-lg flex flex-col justify-center shadow-sm">
-                                                                            <span className="text-[8px] text-gray-500 font-bold uppercase tracking-wider mb-1.5">Status Paket</span>
-                                                                            <div className="flex gap-2.5">
-                                                                                <div className="flex items-center text-[#34d399] text-[10px] font-bold"><i className="fas fa-check-circle mr-1"></i>{group.s_sukses}</div>
-                                                                                <div className="flex items-center text-[#60a5fa] text-[10px] font-bold"><i className="fas fa-truck mr-1"></i>{group.s_proses}</div>
-                                                                                <div className="flex items-center text-[#f87171] text-[10px] font-bold"><i className="fas fa-times-circle mr-1"></i>{group.s_cancel}</div>
-                                                                            </div>
-                                                                        </div>
-                                                                        <div className="bg-[#151928] border border-[#2a3147] p-2.5 rounded-lg flex flex-col justify-center shadow-sm items-end text-right">
-                                                                            <span className="text-[8px] text-gray-500 font-bold uppercase tracking-wider mb-0.5">Uang CASH / COD</span><span className="text-[12px] font-black text-[#34d399]">{formatCurrency(group.uangCASH)}</span>
-                                                                        </div>
-                                                                        <div className="bg-[#151928] border border-[#2a3147] p-2.5 rounded-lg flex flex-col justify-center shadow-sm items-end text-right">
-                                                                            <span className="text-[8px] text-gray-500 font-bold uppercase tracking-wider mb-0.5">Transfer Olshop</span><span className="text-[12px] font-black text-[#60a5fa]">{formatCurrency(group.uangTFOlshop)}</span>
-                                                                        </div>
-                                                                        <div className="bg-[#151928] border border-[#2a3147] p-2.5 rounded-lg flex flex-col justify-center shadow-sm items-end text-right">
-                                                                            <span className="text-[8px] text-gray-500 font-bold uppercase tracking-wider mb-0.5">Beban Ongkir (TF)</span><span className="text-[12px] font-black text-[#f87171]">{formatCurrency(group.bebanOngkirOlshop)}</span>
-                                                                        </div>
-                                                                    </div>
+                                                                        <td className="px-3 py-3 text-center border-r border-[#2a3147]/50 align-middle">
+                                                                            {(isSukses || isProses) ? (
+                                                                                <button onClick={() => toggleMap(pkg.packageId)} className={`px-2.5 py-1.5 rounded text-[10px] font-bold transition-all shadow-sm ${isMapShown ? 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30 hover:bg-blue-500/30'}`}>
+                                                                                    <i className={`fas ${isMapShown ? 'fa-times' : 'fa-location-arrow'}`}></i> {isMapShown ? 'Tutup' : 'Lacak'}
+                                                                                </button>
+                                                                            ) : (
+                                                                                <span className="text-gray-600">-</span>
+                                                                            )}
+                                                                        </td>
 
-                                                                    <div className="hidden lg:grid grid-cols-2 gap-x-2 gap-y-1.5 justify-center w-max mx-auto">
-                                                                        <div className="flex flex-col items-center"><div className="bg-[#153a2b] text-[#34d399] px-2 py-0.5 rounded-md text-[11px] font-bold border border-[#1d4f3b] flex items-center justify-center min-w-[44px] shadow-sm"><i className="fas fa-check-circle mr-1"></i>{group.s_sukses}</div></div>
-                                                                        <div className="flex flex-col items-center"><div className="bg-[#1e3a8a] text-[#60a5fa] px-2 py-0.5 rounded-md text-[11px] font-bold border border-[#1e40af] flex items-center justify-center min-w-[44px] shadow-sm"><i className="fas fa-truck mr-1"></i>{group.s_proses}</div></div>
-                                                                        <div className="flex flex-col items-center"><div className="bg-[#431407] text-[#fb923c] px-2 py-0.5 rounded-md text-[11px] font-bold border border-[#7c2d12] flex items-center justify-center min-w-[44px] shadow-sm"><i className="fas fa-clock mr-1"></i>{group.s_pending}</div></div>
-                                                                        <div className="flex flex-col items-center"><div className="bg-[#450a0a] text-[#f87171] px-2 py-0.5 rounded-md text-[11px] font-bold border border-[#7f1d1d] flex items-center justify-center min-w-[44px] shadow-sm"><i className="fas fa-times-circle mr-1"></i>{group.s_cancel}</div></div>
-                                                                    </div>
-                                                                    <div className="hidden lg:flex justify-center text-[13px] font-black text-[#34d399]">{group.uangCASH > 0 ? '+' : ''}{group.uangCASH === 0 ? 'Rp 0' : formatCurrency(group.uangCASH)}</div>
-                                                                    <div className="hidden lg:flex justify-center text-[13px] font-black text-[#60a5fa]">{group.uangTFOlshop === 0 ? 'Rp 0' : formatCurrency(group.uangTFOlshop)}</div>
-                                                                    <div className="hidden lg:flex justify-center text-[13px] font-black text-[#c084fc]">{group.uangTFKantor === 0 ? 'Rp 0' : formatCurrency(group.uangTFKantor)}</div>
-                                                                    <div className="hidden lg:flex justify-center text-[13px] font-black text-[#f87171]">{group.bebanOngkirOlshop > 0 ? '-' : ''}{group.bebanOngkirOlshop === 0 ? 'Rp 0' : formatCurrency(group.bebanOngkirOlshop)}</div>
-                                                                    <div className="hidden lg:flex justify-end pr-2 text-[14px] font-black text-white">{formatCurrency(group.totalBersih)}</div>
-                                                                </div>
+                                                                        <td className="px-3 py-3 text-center border-r border-[#2a3147]/50 align-middle">
+                                                                            <StatusBadge status={pkg.status} />
+                                                                            <div className="text-[8px] text-gray-500 font-normal mt-1 border border-gray-600/50 bg-[#151928] rounded px-1.5 py-0.5 inline-block">{metode || '-'}</div>
+                                                                        </td>
 
-                                                                {/* RINCIAN DALAM ACCORDION */}
-                                                                {isGroupExpanded && (
-                                                                    <div className="bg-[#151928] p-2 md:p-3 border-t-2 border-[#1e2336] flex flex-col gap-2.5 shadow-inner">
-                                                                        {group.packages.map((pkg, pIdx) => {
-                                                                            const { hBarang, oDasar, oTambahan } = getFinancials(pkg);
-                                                                            const metode = String(pkg.metodeBayar).trim().toUpperCase();
-                                                                            const isSukses = String(pkg.status).toLowerCase() === 'sukses';
-                                                                            const isProses = ['siap_antar', 'proses'].includes(String(pkg.status).toLowerCase().replace(' ', '_'));
-                                                                            const isUangMasuk = (metode === 'CASH' || metode === 'TF KANTOR' || metode === 'COD');
-                                                                            let totalValue = 0;
-                                                                            if (isSukses) { if (isUangMasuk) totalValue = hBarang; else if (metode === 'TF OLSHOP') totalValue = -(oDasar + oTambahan); }
+                                                                        <td className="px-3 py-3 text-right font-black text-[#34d399] border-r border-[#2a3147]/50">
+                                                                            {cashCod > 0 ? formatCurrency(cashCod) : <span className="text-gray-600 font-normal">-</span>}
+                                                                        </td>
 
-                                                                            let displayKurir = String(pkg.kurirId || '');
-                                                                            let displayTglFull = String(pkg.dateString || pkg.tanggal || '-');
-                                                                            if (displayKurir.includes('@')) displayKurir = displayKurir.split('@')[0];
-                                                                            if (displayTglFull.includes('T')) displayTglFull = displayTglFull.split('T')[0];
+                                                                        <td className="px-3 py-3 text-right font-black text-[#60a5fa] border-r border-[#2a3147]/50">
+                                                                            {tfOlshop > 0 ? formatCurrency(tfOlshop) : <span className="text-gray-600 font-normal">-</span>}
+                                                                        </td>
 
-                                                                            const isMapShown = showMapIds.includes(pkg.packageId);
-                                                                            const resolvedUrlFoto = getFotoUrl(pkg);
+                                                                        <td className="px-3 py-3 text-right font-black text-[#c084fc] border-r border-[#2a3147]/50">
+                                                                            {tfKantor > 0 ? formatCurrency(tfKantor) : <span className="text-gray-600 font-normal">-</span>}
+                                                                        </td>
 
-                                                                            return (
-                                                                                <div key={pIdx} className="flex flex-col gap-2">
-                                                                                    <div className="bg-[#1e2336] rounded-xl border border-[#2a3147] p-3 md:p-2.5 flex flex-col md:flex-row md:items-center justify-between hover:bg-[#252b41] transition-colors gap-3 md:gap-0">
-                                                                                        <div className="flex items-start md:items-center gap-3 md:gap-4 w-full md:w-auto">
-                                                                                            {resolvedUrlFoto ? (
-                                                                                                <div className="relative w-12 h-12 md:w-14 md:h-14 rounded-lg overflow-hidden border border-[#374151] shrink-0 cursor-pointer shadow-sm group" onClick={(e) => { e.stopPropagation(); setSelectedImage(resolvedUrlFoto); }}>
-                                                                                                    <img src={resolvedUrlFoto} alt="Bukti" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" loading="lazy" />
-                                                                                                </div>
-                                                                                            ) : (
-                                                                                                <div className="w-12 h-12 md:w-14 md:h-14 rounded-lg bg-[#151928] border border-dashed border-[#374151] flex flex-col items-center justify-center shrink-0 cursor-pointer text-gray-500 hover:text-gray-400 hover:bg-[#252b41] transition-colors" onClick={(e) => { e.stopPropagation(); setSelectedImage('https://via.placeholder.com/400x500/1e2336/9ca3af.png?text=Foto+Belum+Tersedia'); }}>
-                                                                                                    <i className="fas fa-image text-xs md:text-sm mb-0.5"></i>
-                                                                                                    <span className="text-[6px] md:text-[7px] font-bold uppercase">No Foto</span>
-                                                                                                </div>
-                                                                                            )}
-                                                                                            <div className="flex flex-col flex-1 min-w-0">
-                                                                                                <div className="flex justify-between md:justify-start items-center gap-2">
-                                                                                                    <span className="bg-[#2a3147] text-gray-300 font-mono text-[10px] md:text-[11px] px-2 py-0.5 rounded shadow-inner tracking-wider w-max">{pkg.packageId}</span>
-                                                                                                    <div className="md:hidden"><StatusBadge status={pkg.status} /></div>
-                                                                                                </div>
-                                                                                                <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                                                                                                    <span className="text-[9px] text-gray-400 whitespace-nowrap"><i className="fas fa-calendar-alt mr-1"></i> {displayTglFull}</span>
-                                                                                                    <span className="text-[7px] font-bold px-1.5 py-0.5 rounded border whitespace-nowrap bg-[#2a3147] text-gray-400 border-gray-600">{metode || 'KOSONG'}</span>
-                                                                                                </div>
-                                                                                                <div className="md:hidden mt-3 w-full">
-                                                                                                    {(isSukses || isProses) && (
-                                                                                                        <button onClick={() => toggleMap(pkg.packageId)} className={`w-full text-[#60a5fa] border border-gray-600 text-[10px] px-3 py-1.5 rounded flex items-center justify-center font-bold shadow-sm transition-colors ${isMapShown ? 'bg-[#374151]/50 hover:bg-[#374151]' : 'bg-[#374151] hover:bg-[#4b5563]'}`}>
-                                                                                                            <i className={`fas ${isMapShown ? 'fa-times text-red-400' : 'fa-location-arrow text-blue-400'} mr-1.5`}></i> {isMapShown ? 'Tutup Lacak' : 'Lacak Lokasi'}
-                                                                                                        </button>
-                                                                                                    )}
-                                                                                                </div>
+                                                                        <td className="px-3 py-3 text-right font-black text-[#f87171] border-r border-[#2a3147]/50">
+                                                                            {bebanOngkir > 0 ? `-${formatCurrency(bebanOngkir)}` : <span className="text-gray-600 font-normal">-</span>}
+                                                                        </td>
+
+                                                                        <td className={`px-3 py-3 text-right font-black ${totalBersih < 0 ? 'text-[#f87171]' : (totalBersih > 0 ? 'text-[#34d399]' : 'text-gray-500 font-normal')}`}>
+                                                                            {totalBersih !== 0 ? formatCurrency(totalBersih) : '-'}
+                                                                        </td>
+                                                                    </tr>
+                                                                    
+                                                                    {/* MAP & HISTORI ROW (Muncul jika tombol Lacak diklik) */}
+                                                                    {isMapShown && (
+                                                                        <tr className="bg-[#0f172a] shadow-inner">
+                                                                            <td colSpan="11" className="p-4 border-b border-[#2a3147]">
+                                                                                <div className="flex flex-col md:flex-row gap-4 animate-fade-in-down">
+                                                                                    
+                                                                                    {/* Histori Singkat */}
+                                                                                    <div className="bg-[#151928] p-4 rounded-xl border border-[#2a3147] shadow-sm md:w-[350px] shrink-0">
+                                                                                        <h5 className="font-bold text-[#e65c00] uppercase mb-3 text-[10px] tracking-wider"><i className="fas fa-history mr-1.5"></i> Info Perjalanan: {pkg.packageId}</h5>
+                                                                                        <div className="space-y-4 relative border-l border-[#374151] ml-2.5 pl-4">
+                                                                                            <div className="relative">
+                                                                                                <div className="absolute -left-[21px] top-0.5 bg-green-500 w-2.5 h-2.5 rounded-full border-2 border-[#151928]"></div>
+                                                                                                <p className="font-bold text-gray-200 text-xs">Paket Terdaftar (Sistem)</p>
+                                                                                                <p className="text-gray-500 text-[9px] mt-0.5">{getIndoDate(pkg.tanggalInput || pkg.tanggal)}</p>
                                                                                             </div>
-                                                                                            <div className="hidden md:flex flex-col gap-1.5 ml-2">
-                                                                                                <StatusBadge status={pkg.status} />
-                                                                                                {(isSukses || isProses) && (
-                                                                                                    <button onClick={() => toggleMap(pkg.packageId)} className="bg-[#374151] hover:bg-[#4b5563] text-[#60a5fa] border border-gray-600 text-[9px] px-2 py-0.5 rounded flex items-center justify-center transition-all shadow-sm active:scale-95 font-bold w-full">
-                                                                                                        <i className={`fas ${isMapShown ? 'fa-times text-red-400' : 'fa-location-arrow text-blue-400'} mr-1`}></i>{isMapShown ? 'Tutup' : 'Lacak'}
-                                                                                                    </button>
+                                                                                            <div className="relative">
+                                                                                                <div className={`absolute -left-[21px] top-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#151928] ${!isProses ? 'bg-green-500' : 'bg-blue-500 animate-ping'}`}></div>
+                                                                                                {isProses ? (
+                                                                                                    <div>
+                                                                                                        <p className="font-bold text-blue-400 text-xs">Sedang Di Proses Antar</p>
+                                                                                                        <p className="text-gray-500 text-[9px] mt-0.5">Oleh: Kurir {String(pkg.kurirId || 'Tanpa Kurir').split('@')[0]}</p>
+                                                                                                    </div>
+                                                                                                ) : (
+                                                                                                    <div>
+                                                                                                        <p className="font-semibold text-gray-300 text-xs">Diserahkan Ke Kurir</p>
+                                                                                                    </div>
                                                                                                 )}
                                                                                             </div>
-                                                                                        </div>
-                                                                                        <div className="flex items-center justify-between md:justify-end gap-3 md:gap-4 w-full md:w-auto bg-[#151928] md:bg-transparent p-2.5 md:p-0 rounded border border-[#2a3147] md:border-none mt-1 md:mt-0">
-                                                                                            <div className="text-[10px] flex flex-col md:items-end">
-                                                                                                <span className="text-gray-400">Brg: <span className="text-gray-500 font-bold">{formatCurrency(hBarang)}</span></span>
-                                                                                                <span className="text-gray-400">Ongkir: <span className="text-gray-500 font-bold">{formatCurrency(oDasar)}</span></span>
-                                                                                            </div>
-                                                                                            <div className="flex flex-col items-end">
-                                                                                                <span className="text-[8px] text-gray-500 font-bold uppercase tracking-widest mb-0.5 md:hidden">Total Bersih</span>
-                                                                                                <span className={`text-[14px] md:text-[13px] font-black w-auto md:w-[100px] text-right ${totalValue < 0 ? 'text-[#f87171]' : (totalValue > 0 ? 'text-[#34d399]' : 'text-gray-500')}`}>
-                                                                                                    {totalValue > 0 && isSukses ? '+' : ''}{formatCurrency(totalValue)}
-                                                                                                </span>
-                                                                                            </div>
+                                                                                            {isSukses && (
+                                                                                                <div className="relative">
+                                                                                                    <div className="absolute -left-[21px] top-0.5 bg-green-500 w-2.5 h-2.5 rounded-full border-2 border-[#151928]"></div>
+                                                                                                    <p className="font-bold text-emerald-400 text-xs">Paket Sukses Diterima</p>
+                                                                                                    <p className="text-gray-500 text-[9px] mt-0.5">Selesai: {getIndoDate(pkg.dateString)}</p>
+                                                                                                </div>
+                                                                                            )}
                                                                                         </div>
                                                                                     </div>
-                                                                                    {isMapShown && (
-                                                                                        <div className="bg-[#1e2336] p-3 md:p-4 rounded-xl border border-[#2a3147] animate-fade-in-down mt-0.5 mb-2">
-                                                                                            <TrackingMap packageId={pkg.packageId} address={pkg.address} status={pkg.status} koordinatGps={null} />
-                                                                                        </div>
-                                                                                    )}
+                                                                                    
+                                                                                    {/* Peta GPS */}
+                                                                                    <div className="flex-1">
+                                                                                        <TrackingMap packageId={pkg.packageId} address={pkg.address} status={pkg.status} koordinatGps={null} />
+                                                                                    </div>
+                                                                                    
                                                                                 </div>
-                                                                            );
-                                                                        })}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
+                                                                            </td>
+                                                                        </tr>
+                                                                    )}
+                                                                </React.Fragment>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
                                             </div>
                                         </div>
                                     )}
@@ -854,9 +788,6 @@
                             </div>
                         )}
 
-                        {/* ========================================================================= */}
-                        {/* TAB 2: MESIN CETAK INVOICE OLSHOP */}
-                        {/* ========================================================================= */}
                         {activeMenuTab === 'cetak' && (
                             <div className="animate-fade-in-down overflow-x-auto w-full pb-4">
                                 <div ref={printAreaRef} className="cetak-container bg-white mx-auto w-full max-w-[1150px] min-w-[1050px] p-6 sm:p-8 shadow-xl border border-gray-200 flex flex-col relative">
