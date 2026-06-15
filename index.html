@@ -49,19 +49,58 @@
         .table-fit { table-layout: fixed; width: 100%; border-collapse: collapse; }
         .table-fit th, .table-fit td { word-wrap: break-word; overflow-wrap: break-word; }
 
-        /* CSS KHUSUS HALAMAN CETAK REKAP (PRINT MODE - DIKUNCI KE TAMPILAN DEKSTOP) */
-        .print-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-        .print-table th, .print-table td { border: 1px solid #000; padding: 4px 6px; }
+        .cetak-area { width: 100%; max-width: 100%; margin: 0 auto; background-color: #fff; }
+        .print-table { width: 100%; table-layout: fixed; border-collapse: collapse; }
+        .print-table th, .print-table td { border: 1px solid #000; word-wrap: break-word; overflow-wrap: break-word; }
         .print-table th { background-color: #f3f4f6; text-align: center; font-weight: bold; }
-        .box-summary { border: 1px solid #000; font-size: 12px; font-weight: bold; background-color: #fff; }
-        .box-summary td { border: 1px solid #000; padding: 4px 8px; }
+        .print-table td { text-align: left; vertical-align: middle; }
+        .print-table td.center { text-align: center; }
+        .print-table td.right { text-align: right; }
+        
+        .box-summary { border: 1px solid #000; font-weight: bold; background-color: #fff; width: 100%; table-layout: fixed; }
+        .box-summary td { border: 1px solid #000; word-wrap: break-word; }
 
-        /* Aturan saat tombol print Browser ditekan */
+        /* PERINTAH PAKSA: BILA DIBUKA DI HP, KECILKAN FONT DRASTIS AGAR MUAT 1 LAYAR */
+        @media screen and (max-width: 768px) {
+            .cetak-area { padding: 6px !important; }
+            .print-table { font-size: 4px; }
+            .print-table th, .print-table td { padding: 2px 1px; }
+            .box-summary { font-size: 4.5px; }
+            .box-summary td { padding: 2px; }
+            .cetak-logo-container { width: 35px; height: auto; }
+            .cetak-header-text { font-size: 5px; padding: 2px 4px; min-width: 0; width: 100%; }
+            .cetak-header-gap { gap: 4px !important; }
+            .cetak-title-box { gap: 2px !important; }
+            .footer-print { font-size: 4px !important; }
+            .footer-print p.lg { font-size: 5px !important; }
+        }
+        
+        /* BILA DIBUKA DI LAPTOP, BESARKAN KEMBALI */
+        @media screen and (min-width: 769px) {
+            .cetak-area { padding: 32px !important; min-width: 1000px; }
+            .print-table { font-size: 11px; }
+            .print-table th, .print-table td { padding: 4px 6px; }
+            .box-summary { font-size: 12px; }
+            .box-summary td { padding: 4px 8px; }
+            .cetak-logo-container { width: 120px; }
+            .cetak-header-text { font-size: 14px; padding: 6px 16px; min-width: 250px; }
+            .cetak-header-gap { gap: 24px !important; }
+            .cetak-title-box { gap: 4px !important; }
+            .footer-print { font-size: 10px !important; }
+            .footer-print p.lg { font-size: 14px !important; }
+        }
+
+        /* Aturan saat tombol Print Kertas/Printer Fisik ditekan */
         @media print {
             @page { size: landscape; margin: 10mm; }
             body { background-color: #fff !important; }
             .no-print { display: none !important; }
             .cetak-area { width: 100% !important; min-width: 100% !important; margin: 0 !important; padding: 0 !important; box-shadow: none !important; border: none !important; }
+            .print-table { font-size: 10px !important; }
+            .print-table th, .print-table td { padding: 4px !important; }
+            .box-summary { font-size: 11px !important; }
+            .cetak-logo-container { width: 100px !important; }
+            .cetak-header-text { font-size: 12px !important; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
 
@@ -70,11 +109,10 @@
 </head>
 <body class="antialiased">
     
-    <!-- Loading Overlay Export PDF/JPG -->
     <div id="export-loading">
         <i class="fas fa-circle-notch fa-spin text-4xl text-[#e65c00] mb-4"></i>
         <h2 class="text-xl font-bold text-slate-800 text-center px-4">Mempersiapkan Dokumen...</h2>
-        <p class="text-slate-500 text-sm mt-2 text-center px-4">Harap tunggu, mengekstrak data ke format cetak.</p>
+        <p class="text-slate-500 text-sm mt-2 text-center px-4">Harap tunggu, mengekstrak data ke format cetak <b>Resolusi Tinggi</b>.</p>
     </div>
 
     <div id="root"></div>
@@ -96,7 +134,6 @@
             return new Intl.NumberFormat('id-ID').format(amount);
         };
 
-        // KOMPONEN: PETA PELACAKAN (Membaca Koordinat GPS Asli)
         function TrackingMap({ packageId, address, status, koordinatGps }) {
             const mapRef = useRef(null);
             const isProses = ['siap_antar', 'proses'].includes(String(status).toLowerCase().replace(' ', '_'));
@@ -269,7 +306,6 @@
                 );
             }
 
-            // FILTER DATA (BERLAKU UNTUK KEDUA TAB)
             let rawFilteredPkgs = packages.filter(p => {
                 const pOlshopName = String(p.olshopName).trim().toLowerCase();
                 const uName = String(userProfile.name).trim().toLowerCase();
@@ -304,7 +340,6 @@
                 rawFilteredPkgs = rawFilteredPkgs.filter(p => String(p.customerName).toLowerCase().includes(q) || String(p.packageId).toLowerCase().includes(q));
             }
 
-            // FILTER STATUS (Hanya untuk tampilan tabel Dashboard, Cetak Rekap menampilkan semua dalam rentang tanggal)
             let dashboardFilteredPkgs = rawFilteredPkgs;
             if (filterStatus !== 'semua') {
                 dashboardFilteredPkgs = dashboardFilteredPkgs.filter(p => {
@@ -314,12 +349,9 @@
                 });
             }
 
-            // KEUANGAN UNTUK DASHBOARD WIDGET
             let s_sukses = 0, s_proses = 0, s_pending = 0, s_cancel = 0;
             let saldoBelumCair = 0, danaSudahCairBersih = 0, potonganBelumCair = 0;
             let uangBarangAll = 0, bebanOngkirAll = 0;
-
-            // KEUANGAN UNTUK CETAK REKAP
             let print_sukses = 0, print_pending = 0, print_cancel = 0;
             let print_setoran = 0, print_tfVolume = 0, print_sudahSetor = 0;
 
@@ -329,7 +361,6 @@
                 const isCair = String(pkg.statusPencairan).toLowerCase() === 'cair';
                 const { hBarang, oTotal } = getFinancials(pkg);
 
-                // --- KALKULASI DASHBOARD (Berdasarkan Dashboard Filtered Data) ---
                 if (dashboardFilteredPkgs.includes(pkg)) {
                     if(stat === 'sukses') s_sukses++;
                     else if(stat === 'siap_antar' || stat === 'proses') s_proses++;
@@ -347,7 +378,6 @@
                     }
                 }
 
-                // --- KALKULASI CETAK REKAP (Berdasarkan Semua Data Tanggal) ---
                 if(stat === 'sukses') {
                     print_sukses++;
                     let currentSetoran = 0; let currentTfVolume = 0;
@@ -399,7 +429,6 @@
                 return 'Semua Waktu';
             };
 
-            // EXPORT FUNGSI (PDF / JPG)
             const executeExport = async (format) => {
                 if (!printAreaRef.current) return;
                 const loadingEl = document.getElementById('export-loading');
@@ -410,7 +439,16 @@
                 setTimeout(async () => {
                     try {
                         const element = printAreaRef.current;
-                        const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: '#ffffff', windowWidth: element.scrollWidth, windowHeight: element.scrollHeight });
+                        const canvas = await html2canvas(element, { 
+                            scale: 2, 
+                            useCORS: true, 
+                            backgroundColor: '#ffffff',
+                            // TRIK MASTER: Paksa html2canvas me-render seolah-olah layarnya selebar Desktop (1200px)
+                            // Meskipun tombol dipencet dari layar HP yang sempit, hasilnya tetap kualitas A4 rapi!
+                            windowWidth: 1200, 
+                            windowHeight: element.scrollHeight
+                        });
+                        
                         window.scrollTo(0, currentScrollY);
                         
                         const imgData = canvas.toDataURL('image/jpeg', 1.0);
@@ -445,7 +483,7 @@
             return (
                 <div className="min-h-screen bg-[#f3f4f6] font-sans w-full max-w-[1400px] mx-auto flex flex-col pb-8">
                     
-                    {/* ================= HEADER & TABS MENU ================= */}
+                    {/* HEADER & TABS MENU */}
                     <div className="bg-[#1e2336] px-4 pt-4 pb-0 text-white rounded-b-3xl shadow-md sticky top-0 z-50 no-print">
                         <div className="flex justify-between items-start mb-5">
                             <div>
@@ -482,7 +520,7 @@
                         </div>
                     </div>
 
-                    {/* ================= TAMPILAN DASHBOARD ================= */}
+                    {/* ================= TAMPILAN DASHBOARD (TAB 1) ================= */}
                     {activeMenu === 'dashboard' && (
                         <div className="animate-fade-in-down">
                             {/* KOTAK FILTER KHAS WARNA PUTIH */}
@@ -698,7 +736,7 @@
                         </div>
                     )}
 
-                    {/* ================= TAMPILAN CETAK REKAP (PRINT MODE) ================= */}
+                    {}
                     {activeMenu === 'cetak' && (
                         <div className="animate-fade-in-down px-2 md:px-6 mb-10">
                             {/* Tombol Aksi Print/Download */}
@@ -713,68 +751,71 @@
                                 </div>
                             </div>
 
-                            {/* WRAPPER SCROLL HORIZONTAL AGAR TIDAK HANCUR DI HP */}
-                            <div className="w-full overflow-x-auto rounded-xl shadow-sm border border-gray-200 bg-white">
-                                {/* CONTAINER KERTAS A4 UNTUK DICETAK (DIKUNCI LEBAR MINIMALNYA) */}
-                                <div ref={printAreaRef} className="cetak-area p-6 md:p-8 text-black min-w-[1000px] w-full">
-                                    <div className="flex justify-between items-start mb-6 gap-6">
-                                        <div className="flex items-center gap-4">
+                            {/* WADAH CETAK (Auto-Scale di HP, Fix Width di Desktop) */}
+                            <div className="w-full rounded-xl shadow-sm border border-gray-200 bg-white overflow-hidden">
+                                <div ref={printAreaRef} className="cetak-area text-black">
+                                    
+                                    <div className="flex justify-between items-start mb-4 md:mb-6 cetak-header-gap">
+                                        {/* Bagian Kiri (Logo + Title) */}
+                                        <div className="flex items-center cetak-header-gap w-1/2">
                                             <div className="flex flex-col items-center">
-                                                <div className="w-[120px] shrink-0 border border-slate-200 rounded p-1 bg-slate-50 flex items-center justify-center">
+                                                <div className="cetak-logo-container border border-slate-200 rounded p-0.5 md:p-1 bg-slate-50 flex items-center justify-center">
                                                     <img src="https://drive.google.com/uc?id=1xBkWoexBfNOe8WKhDp8WBkh7hjvK4Yub" crossOrigin="anonymous" alt="Exceed Logo" className="w-full h-auto object-contain" onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }} />
                                                     <div style={{display: 'none'}} className="w-full h-[50px] bg-[#0f172a] flex-col justify-center items-center text-white italic rounded-sm"><span className="text-xl font-black text-orange-500">e<span className="text-blue-300">X</span></span></div>
                                                 </div>
-                                                <span className="text-[10px] font-bold italic text-slate-700 mt-1.5 whitespace-nowrap">"Antar tuntas harga pas"</span>
+                                                <span className="text-[4px] md:text-[10px] font-bold italic text-slate-700 mt-1 whitespace-nowrap">"Antar tuntas harga pas"</span>
                                             </div>
 
-                                            <div className="flex flex-col gap-1">
-                                                <div className="border border-black px-4 py-1.5 font-bold text-sm min-w-[250px] uppercase bg-gray-50 flex items-center">
-                                                    <span className="text-[10px] text-gray-500 mr-2 border-r border-gray-400 pr-2">OLSHOP</span> {userProfile.name}
+                                            <div className="flex flex-col w-full cetak-title-box">
+                                                <div className="border border-black font-bold uppercase bg-gray-50 flex items-center cetak-header-text">
+                                                    <span className="text-gray-500 mr-1 md:mr-2 border-r border-gray-400 pr-1 md:pr-2">OLSHOP</span> <span className="truncate">{userProfile.name}</span>
                                                 </div>
-                                                <div className="border border-black px-4 py-1.5 text-sm font-semibold min-w-[250px]">{displayHeaderDate()}</div>
+                                                <div className="border border-black font-semibold cetak-header-text">
+                                                    {displayHeaderDate()}
+                                                </div>
                                             </div>
                                         </div>
 
                                         {/* KOTAK RINGKASAN KEUANGAN */}
-                                        <div className="flex gap-4">
-                                            <table className="box-summary w-[260px]">
+                                        <div className="flex cetak-header-gap w-1/2 justify-end">
+                                            <table className="box-summary w-[60%]">
                                                 <tbody>
-                                                    <tr><td className="bg-gray-100 w-[140px]">Setoran (Cash)</td><td className="text-right w-[120px]">{formatShort(print_setoran)}</td></tr>
-                                                    <tr><td className="bg-gray-100">Beban / Potongan (TF)</td><td className="text-right text-red-600">{formatShort(print_tfVolume)}</td></tr>
-                                                    <tr><td className="bg-gray-100">Estimasi Setoran</td><td className="text-right text-blue-600">{formatShort(print_estimasiSetoran)}</td></tr>
-                                                    <tr><td className="bg-gray-100">SUDAH DICAIRKAN</td><td className="text-right text-emerald-600">{formatShort(print_sudahSetor)}</td></tr>
+                                                    <tr><td className="bg-gray-100">Setoran (Cash)</td><td className="right">{formatShort(print_setoran)}</td></tr>
+                                                    <tr><td className="bg-gray-100">Beban / Potongan (TF)</td><td className="right text-red-600">{formatShort(print_tfVolume)}</td></tr>
+                                                    <tr><td className="bg-gray-100">Estimasi Setoran</td><td className="right text-blue-600">{formatShort(print_estimasiSetoran)}</td></tr>
+                                                    <tr><td className="bg-gray-100">SUDAH DICAIRKAN</td><td className="right text-emerald-600">{formatShort(print_sudahSetor)}</td></tr>
                                                 </tbody>
                                             </table>
-                                            <table className="box-summary w-[120px]">
+                                            <table className="box-summary w-[35%]">
                                                 <tbody>
-                                                    <tr><td className="bg-green-400 text-green-900 text-center uppercase tracking-wider">SUKSES</td><td className="text-center font-black text-lg w-[40px]">{print_sukses}</td></tr>
-                                                    <tr><td className="bg-yellow-400 text-yellow-900 text-center uppercase tracking-wider">PENDING</td><td className="text-center font-black text-lg">{print_pending}</td></tr>
-                                                    <tr><td className="bg-red-500 text-white text-center uppercase tracking-wider">CANCEL</td><td className="text-center font-black text-lg">{print_cancel}</td></tr>
+                                                    <tr><td className="bg-green-400 text-green-900 center uppercase tracking-wider">SUKSES</td><td className="center font-black">{print_sukses}</td></tr>
+                                                    <tr><td className="bg-yellow-400 text-yellow-900 center uppercase tracking-wider">PENDING</td><td className="center font-black">{print_pending}</td></tr>
+                                                    <tr><td className="bg-red-500 text-white center uppercase tracking-wider">CANCEL</td><td className="center font-black">{print_cancel}</td></tr>
                                                 </tbody>
                                             </table>
                                         </div>
                                     </div>
 
-                                    {/* TABEL CETAK (TIDAK LAGI JADI CARD DI HP) */}
-                                    <table className="print-table w-full">
+                                    {/* TABEL CETAK UTAMA (Fixed Width Proporsional) */}
+                                    <table className="print-table">
                                         <thead>
                                             <tr>
-                                                <th className="w-8">NO</th>
-                                                <th className="w-24">NO RESI</th>
-                                                <th className="w-40">NAMA CUSTOMER</th>
-                                                <th className="w-48">ALAMAT LENGKAP</th>
-                                                <th className="w-20">STATUS</th>
-                                                <th className="w-24">METODE BAYAR</th>
-                                                <th className="w-20">HARGA BRG</th>
-                                                <th className="w-20">ONGKIR DSR</th>
-                                                <th className="w-20">TMBH VOL</th>
-                                                <th className="w-20">TOTAL TAGIHAN</th>
-                                                <th className="w-28">NAMA KURIR</th>
+                                                <th style={{width: '3%'}}>NO</th>
+                                                <th style={{width: '12%'}}>NO RESI</th>
+                                                <th style={{width: '14%'}}>NAMA CUSTOMER</th>
+                                                <th style={{width: '20%'}}>ALAMAT LENGKAP</th>
+                                                <th style={{width: '7%'}}>STATUS</th>
+                                                <th style={{width: '8%'}}>METODE</th>
+                                                <th style={{width: '8%'}}>HRG BRG</th>
+                                                <th style={{width: '8%'}}>ONGKIR</th>
+                                                <th style={{width: '6%'}}>TMBH VOL</th>
+                                                <th style={{width: '8%'}}>TAGIHAN</th>
+                                                <th style={{width: '6%'}}>KURIR</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {rawFilteredPkgs.length === 0 ? (
-                                                <tr><td colSpan="11" className="text-center py-8 text-gray-500 font-bold bg-gray-50">Tidak ada data paket di rentang tanggal ini.</td></tr>
+                                                <tr><td colSpan="11" className="center py-8 text-gray-500 font-bold bg-gray-50">Tidak ada data paket di rentang tanggal ini.</td></tr>
                                             ) : (
                                                 rawFilteredPkgs.map((pkg, idx) => {
                                                     const stat = String(pkg.status).toUpperCase();
@@ -785,17 +826,17 @@
 
                                                     return (
                                                         <tr key={idx} className={baseRowClass}>
-                                                            <td className="text-center font-bold">{idx + 1}</td>
-                                                            <td className="text-center font-bold text-gray-700">{pkg.packageId}</td>
+                                                            <td className="center font-bold">{idx + 1}</td>
+                                                            <td className="center font-bold text-gray-700">{pkg.packageId}</td>
                                                             <td className="font-semibold">{pkg.customerName}</td>
                                                             <td>{pkg.address}</td>
-                                                            <td className={`text-center font-bold ${isPending ? 'text-yellow-700' : (isCancel ? 'text-red-600' : 'text-green-700')}`}>{stat === 'SIAP_ANTAR' || stat === 'PROSES' ? 'PENDING' : stat}</td>
-                                                            <td className="text-center">{pkg.metodeBayar || '-'}</td>
-                                                            <td className="text-right">{hBarang === 0 ? '-' : formatShort(hBarang)}</td>
-                                                            <td className="text-right">{oDasar === 0 ? '-' : formatShort(oDasar)}</td>
-                                                            <td className="text-right">{oTambahan === 0 ? '-' : formatShort(oTambahan)}</td>
-                                                            <td className="text-right font-bold">{tagihan === 0 ? '-' : formatShort(tagihan)}</td>
-                                                            <td className="text-xs uppercase font-bold text-center">{String(pkg.kurirId || '-').split('@')[0]}</td>
+                                                            <td className={`center font-bold ${isPending ? 'text-yellow-700' : (isCancel ? 'text-red-600' : 'text-green-700')}`}>{stat === 'SIAP_ANTAR' || stat === 'PROSES' ? 'PENDING' : stat}</td>
+                                                            <td className="center">{pkg.metodeBayar || '-'}</td>
+                                                            <td className="right">{hBarang === 0 ? '-' : formatShort(hBarang)}</td>
+                                                            <td className="right">{oDasar === 0 ? '-' : formatShort(oDasar)}</td>
+                                                            <td className="right">{oTambahan === 0 ? '-' : formatShort(oTambahan)}</td>
+                                                            <td className="right font-bold">{tagihan === 0 ? '-' : formatShort(tagihan)}</td>
+                                                            <td className="uppercase font-bold center">{String(pkg.kurirId || '-').split('@')[0]}</td>
                                                         </tr>
                                                     );
                                                 })
@@ -803,9 +844,9 @@
                                         </tbody>
                                     </table>
                                     
-                                    <div className="mt-8 text-center text-[10px] font-bold text-slate-600 border-t-2 border-slate-800 pt-3 flex flex-col items-center justify-center pb-2">
-                                        <p className="text-sm text-slate-800">Exceed Express Logistics</p>
-                                        <p className="font-medium mt-0.5 text-slate-500">Alamat Kantor : Jalan Garuda, BTN Bawah Jayapura, Papua. No. HP 08215006669</p>
+                                    <div className="mt-4 md:mt-8 center font-bold text-slate-600 border-t-2 border-slate-800 pt-2 flex flex-col footer-print">
+                                        <p className="text-slate-800 lg">Exceed Express Logistics</p>
+                                        <p className="font-medium text-slate-500 mt-0.5">Alamat Kantor : Jalan Garuda, BTN Bawah Jayapura, Papua. No. HP 08215006669</p>
                                     </div>
                                 </div>
                             </div>
