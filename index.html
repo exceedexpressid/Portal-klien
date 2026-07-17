@@ -118,7 +118,6 @@
 
     <div id="root"></div>
 
-    <!-- Menambahkan data-presets="react" agar terhindar dari bug babel module -->
     <script type="text/babel" data-presets="react">
         const { useState, useEffect, useRef, useMemo } = React;
 
@@ -148,10 +147,8 @@
 
                     let lat = -2.53371; let lng = 140.71813; let isRealGps = false;
 
-                    // EKSTRAKSI KOORDINAT (Diperbaiki agar lebih toleran terhadap format GPS dari AppSheet)
                     if (koordinatGps) {
                         let coordsStr = String(koordinatGps).trim();
-                        // Hapus karakter non-koordinat jika ada (misal spasi ekstra atau kurung)
                         coordsStr = coordsStr.replace(/[^\d.,-]/g, '');
                         
                         if (coordsStr.includes(',')) {
@@ -159,7 +156,6 @@
                             const parsedLat = parseFloat(parts[0].trim());
                             const parsedLng = parseFloat(parts[1].trim());
                             
-                            // Pastikan kedua nilai adalah angka valid (bukan NaN) dan dalam rentang latitude/longitude yang wajar
                             if (!isNaN(parsedLat) && !isNaN(parsedLng) && 
                                 parsedLat >= -90 && parsedLat <= 90 && 
                                 parsedLng >= -180 && parsedLng <= 180) {
@@ -219,10 +215,8 @@
             const [packages, setPackages] = useState(() => loadLocal('ex_olshopPackages', []));
             const [masterOlshops, setMasterOlshops] = useState(() => loadLocal('ex_masterOlshops', []));
             
-            // MENU NAVIGASI UTAMA: 'dashboard' ATAU 'cetak'
             const [activeMenu, setActiveMenu] = useState('dashboard');
             
-            // FILTER DASHBOARD
             const [filterStatus, setFilterStatus] = useState('semua');
             const [searchQuery, setSearchQuery] = useState('');
             const [startDate, setStartDate] = useState('');
@@ -289,7 +283,6 @@
                 } else { setSyncMessage({ text: 'Nama Toko atau Nomor WA Salah!', type: 'error' }); }
             };
 
-            // HALAMAN LOGIN
             if (!userProfile) {
                 return (
                     <div className="min-h-screen flex items-center justify-center bg-[#0f172a] p-4 relative overflow-hidden">
@@ -665,6 +658,8 @@
                                                     const { hBarang, oTotal } = getFinancials(pkg);
                                                     const metode = String(pkg.metodeBayar).trim().toUpperCase();
                                                     const isSukses = String(pkg.status).toLowerCase() === 'sukses';
+                                                    const isCancel = String(pkg.status).toLowerCase() === 'cancel' || String(pkg.status).toLowerCase() === 'batal';
+                                                    const isPending = String(pkg.status).toLowerCase() === 'pending';
                                                     const isCair = String(pkg.statusPencairan).toLowerCase() === 'cair';
                                                     const isMapShown = showMapIds.includes(pkg.packageId);
                                                     const resolvedUrlFoto = getFotoUrl(pkg);
@@ -703,7 +698,17 @@
                                                                         </button>
                                                                     )}
                                                                 </td>
-                                                                <td className="p-1 md:p-2 text-center align-middle"><StatusBadge status={pkg.status} isCair={isCair} isSukses={isSukses} /></td>
+                                                                <td className="p-1 md:p-2 text-center align-middle">
+                                                                    <StatusBadge status={pkg.status} isCair={isCair} isSukses={isSukses} />
+                                                                    
+                                                                    {/* TAMBAHAN FITUR: KETERANGAN (MUNCUL JIKA CANCEL/PENDING) */}
+                                                                    {/* CSS Diperbarui agar teks turun ke bawah dan bisa dibaca utuh */}
+                                                                    {(isCancel || isPending) && (pkg.keterangan || pkg.keteranganStatus) && (
+                                                                        <div className="mt-1.5 w-full text-[9px] md:text-[11px] font-medium text-orange-300 break-words whitespace-normal bg-[#151928] p-1.5 rounded border border-[#2a3147] text-center leading-tight shadow-inner">
+                                                                            Ket: {pkg.keterangan || pkg.keteranganStatus}
+                                                                        </div>
+                                                                    )}
+                                                                </td>
                                                                 <td className="p-1 md:p-2 text-center font-bold text-[#34d399] tracking-tighter">{formatShort(uCash)}</td>
                                                                 <td className="p-1 md:p-2 text-center font-bold text-[#60a5fa] tracking-tighter">{formatShort(uTfOl)}</td>
                                                                 <td className="p-1 md:p-2 text-center font-bold text-[#c084fc] tracking-tighter">{formatShort(uTfKtr)}</td>
@@ -836,7 +841,7 @@
                                                 rawFilteredPkgs.map((pkg, idx) => {
                                                     const stat = String(pkg.status).toUpperCase();
                                                     const isPending = stat === 'PENDING' || stat === 'SIAP_ANTAR' || stat === 'PROSES';
-                                                    const isCancel = stat === 'CANCEL';
+                                                    const isCancel = stat === 'CANCEL' || stat === 'BATAL';
                                                     const { hBarang, tagihan, oDasar, oTambahan } = getFinancials(pkg);
                                                     const baseRowClass = isPending ? "bg-yellow-100" : (isCancel ? "bg-red-100" : "");
 
@@ -846,7 +851,17 @@
                                                             <td className="center font-bold text-gray-700">{pkg.packageId}</td>
                                                             <td className="font-semibold">{pkg.customerName}</td>
                                                             <td>{pkg.address}</td>
-                                                            <td className={`center font-bold ${isPending ? 'text-yellow-700' : (isCancel ? 'text-red-600' : 'text-green-700')}`}>{stat === 'SIAP_ANTAR' || stat === 'PROSES' ? 'PENDING' : stat}</td>
+                                                            
+                                                            <td className={`center font-bold ${isPending ? 'text-yellow-700' : (isCancel ? 'text-red-600' : 'text-green-700')}`}>
+                                                                {stat === 'SIAP_ANTAR' || stat === 'PROSES' ? 'PENDING' : stat}
+                                                                {/* TAMBAHAN FITUR: KETERANGAN DI CETAK REKAP (Dipertebal agar tidak terpotong) */}
+                                                                {(isCancel || isPending) && (pkg.keterangan || pkg.keteranganStatus) && (
+                                                                    <div style={{fontSize: '9px', fontStyle: 'italic', fontWeight: 'bold', marginTop: '4px', color: '#ea580c', whiteSpace: 'normal', wordWrap: 'break-word'}}>
+                                                                        Ket: {pkg.keterangan || pkg.keteranganStatus}
+                                                                    </div>
+                                                                )}
+                                                            </td>
+                                                            
                                                             <td className="center">{pkg.metodeBayar || '-'}</td>
                                                             <td className="right">{hBarang === 0 ? '-' : formatShort(hBarang)}</td>
                                                             <td className="right">{oDasar === 0 ? '-' : formatShort(oDasar)}</td>
